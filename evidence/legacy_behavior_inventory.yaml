@@ -1,0 +1,57 @@
+version: 1
+records:
+  - feature: workbench
+    input: Open the packaged desktop application.
+    observed_state: The shell exposes recent work and running-task summaries.
+    output: Navigation reaches the product modules from one desktop window.
+    error_behavior: Backend startup failures are written to launcher and backend logs.
+    evidence_ref: logs/desktop_launcher.log and logs/backend_server.log
+
+  - feature: drama_production
+    input: Select one or more episode files and configure target durations.
+    observed_state: Projects, plans, explosion candidates, and variants are persisted.
+    output: Generated media and intermediate subtitle artifacts are stored in local project folders.
+    error_behavior: Failed processing stages remain observable through project and worker state.
+    evidence_ref: data/video.db tables drama_project, drama_plan, drama_explosion, drama_story_cut, drama_variant
+
+  - feature: movie_commentary
+    input: Select a movie source and commentary configuration.
+    observed_state: Commentary work shares subtitle, voice, and rendering artifact areas.
+    output: Local voice, subtitle, and rendered-media artifacts are produced.
+    error_behavior: Runtime failures are recorded in backend logs rather than silently discarded.
+    evidence_ref: source/voice, source/videoSrt, source/contextCaptionBands, and logs/backend_server.log
+
+  - feature: video_variants
+    input: Select input media and request one or more transformed variants.
+    observed_state: Variant records are associated with a production plan.
+    output: Each successful item produces an independently addressable local result.
+    error_behavior: Batch workers record per-run failures for retry diagnosis.
+    evidence_ref: data/video.db table drama_variant and result directory metadata
+
+  - feature: live_clipping
+    input: Configure a supported live source and recording destination.
+    observed_state: Recording and slicing execute in separate worker processes.
+    output: Stable recording segments become inputs to downstream clipping.
+    error_behavior: Recorder and slicer failures are separated into dedicated logs.
+    evidence_ref: logs/recording_worker.log, logs/recording_worker.err.log, logs/slice_worker.log
+
+  - feature: asset_center
+    input: Browse bundled images, fonts, covers, music, or user-selected assets.
+    observed_state: Assets are resolved from local application directories.
+    output: Selected assets can be used by rendering workflows.
+    error_behavior: Missing assets surface as local processing failures.
+    evidence_ref: img, font, source/cover, and packaged static-resource directories
+
+  - feature: task_center
+    input: Start production, slicing, or recording work.
+    observed_state: Long-running work reports state through backend and worker records.
+    output: Task progress and terminal results are available to the desktop shell.
+    error_behavior: Worker-specific output and error logs retain failure context.
+    evidence_ref: logs/runtime_backend.out.log, logs/slice_worker.out.log, logs/recording_worker.out.log
+
+  - feature: settings
+    input: Change local service or production configuration.
+    observed_state: Runtime configuration is loaded from local configuration storage.
+    output: Subsequent workflows consume the saved local settings.
+    error_behavior: Invalid service configuration prevents the affected integration from starting.
+    evidence_ref: config/URL_config.ini and logs/runtime_backend.err.log
