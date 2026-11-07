@@ -7,10 +7,18 @@ import { configureSystemStore } from "./stores/system";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
-const bootstrap = window.__BLUEFRAME_BOOTSTRAP__ ?? {
-  apiBaseUrl: window.location.origin,
-  sessionToken: "development-session-token",
-};
+async function resolveBootstrap() {
+  if (window.__BLUEFRAME_BOOTSTRAP__) return window.__BLUEFRAME_BOOTSTRAP__;
+  if (window.location.protocol === "file:" && !window.pywebview?.api) {
+    await new Promise<void>((resolve) =>
+      window.addEventListener("pywebviewready", () => resolve(), { once: true }),
+    );
+  }
+  if (window.pywebview?.api) return window.pywebview.api.get_bootstrap();
+  return { apiBaseUrl: window.location.origin, sessionToken: "development-session-token" };
+}
+
+const bootstrap = await resolveBootstrap();
 const system = configureSystemStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");

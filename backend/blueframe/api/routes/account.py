@@ -8,6 +8,13 @@ def build_account_router(auth, account_service) -> APIRouter:
 
     @router.get("/access")
     def access():
-        return account_service.evaluate_access(datetime.now(UTC))
+        evaluated = account_service.evaluate_access(datetime.now(UTC))
+        payload = evaluated.model_dump(exclude={"grace_remaining"})
+        payload["grace_remaining_seconds"] = (
+            None
+            if evaluated.grace_remaining is None
+            else int(evaluated.grace_remaining.total_seconds())
+        )
+        return payload
 
     return router

@@ -11,7 +11,7 @@ if (Test-Path -LiteralPath $backendPython) {
     $ranAnySuite = $true
     Push-Location (Join-Path $repositoryRoot "backend")
     try {
-        & $backendPython -m pytest
+        & $backendPython -W error::DeprecationWarning -m pytest -q
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     finally {
@@ -28,6 +28,10 @@ if (Test-Path -LiteralPath $frontendModules) {
     try {
         & npm test -- --run
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        & npm run build
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        & npm run test:e2e -- e2e/shell.spec.ts
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     finally {
         Pop-Location
@@ -41,7 +45,7 @@ if (Test-Path -LiteralPath $desktopPython) {
     $ranAnySuite = $true
     Push-Location (Join-Path $repositoryRoot "desktop")
     try {
-        & $desktopPython -m pytest
+        & $desktopPython -W error::DeprecationWarning -m pytest -q
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     finally {

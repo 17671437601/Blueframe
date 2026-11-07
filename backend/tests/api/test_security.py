@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -42,3 +42,20 @@ def test_protected_routes_require_current_session_token(
         )
         assert valid.status_code == 200
         assert valid.json()["status"] == "ok"
+
+
+def test_account_route_exposes_exact_grace_seconds(migrated_session_factory) -> None:
+    service = StaticAccountService("grace")
+    service.access = service.access.model_copy(
+        update={"grace_remaining": timedelta(hours=2, minutes=3, seconds=4)}
+    )
+    app = create_app(
+        session_token="a" * 64,
+        job_repository=JobRepository(migrated_session_factory),
+        account_service=service,
+    )
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/account/access", headers={"X-BlueFrame-Session": "a" * 64}
+        )
+    assert response.json()["grace_remaining_seconds"] == 7384
