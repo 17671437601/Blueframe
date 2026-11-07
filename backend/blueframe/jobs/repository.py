@@ -85,6 +85,13 @@ class JobRepository:
             ).mappings().first()
             return None if row is None else _job(row)
 
+    def list(self) -> list[Job]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                text("SELECT * FROM jobs ORDER BY created_at DESC")
+            ).mappings().all()
+            return [_job(row) for row in rows]
+
     def request_pause(self, job_id: str) -> Job:
         return self._transition(job_id, JobStatus.PAUSING)
 

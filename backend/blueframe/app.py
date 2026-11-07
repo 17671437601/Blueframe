@@ -8,9 +8,20 @@ from sqlalchemy import text
 
 from blueframe.config import Settings
 from blueframe.db.engine import create_engine_and_session
+from blueframe.api.dependencies import session_dependency
+from blueframe.api.routes.account import build_account_router
+from blueframe.api.routes.jobs import build_jobs_router
+from blueframe.api.routes.system import build_system_router
+from blueframe.security.session_token import SessionTokenVerifier, generate_session_token
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    session_token: str | None = None,
+    job_repository=None,
+    account_service=None,
+) -> FastAPI:
     resolved_settings = settings or Settings()
 
     @asynccontextmanager
@@ -31,5 +42,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         with app.state.session_factory() as session:
             session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "ok"}
+
+    verifier = SessionTokenVerifier(session_token or generate_session_token())
+    require_session = session_dependency(verifier)
+    app.include_router(build_system_router(require_session), prefix="/api/v1")
+    if account_service is not None:
+        app.include_router(
+            build_account_router(require_session, account_service), prefix="/api/v1"
+        )
+    if job_repository is not None and account_service is not None:
+        app.include_router(
+            build_jobs_router(require_session, job_repository, account_service),
+            prefix="/api/v1",
+        )
 
     return app
