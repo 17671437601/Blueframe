@@ -22,7 +22,14 @@ def test_upgrade_head_is_repeatable_and_records_revision(
         revisions = connection.execute(
             "SELECT version_num FROM alembic_version"
         ).fetchall()
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
     finally:
         connection.close()
 
     assert revisions == [("0001_foundation",)]
+    assert {"account_summary", "entitlement_snapshot"} <= tables
