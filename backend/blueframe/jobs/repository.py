@@ -130,12 +130,60 @@ class JobRepository:
             self._event(session, job_id, current.status, current.status, now)
             return self._get(session, job_id)
 
+    def update_progress(
+        self, job_id: str, worker_id: str, progress: float, stage: str | None
+    ) -> Job:
+        now = self._clock()
+        bounded = max(0.0, min(100.0, progress))
+        with self._session_factory.begin() as session:
+            current = self._get(session, job_id)
+            self._require_owner(current, worker_id)
+            session.execute(
+                text(
+                    "UPDATE jobs SET progress=:progress, stage=:stage, updated_at=:now "
+                    "WHERE id=:id AND lease_owner=:owner"
+                ),
+                {
+                    "progress": bounded,
+                    "stage": stage,
+                    "now": now.isoformat(),
+                    "id": job_id,
+                    "owner": worker_id,
+                },
+            )
+            return self._get(session, job_id)
+
+    def save_checkpoint(
+        self, job_id: str, worker_id: str, checkpoint: dict[str, Any]
+    ) -> Job:
+        now = self._clock()
+        with self._session_factory.begin() as session:
+            current = self._get(session, job_id)
+            self._require_owner(current, worker_id)
+            session.execute(
+                text("UPDATE jobs SET checkpoint=:checkpoint, updated_at=:now WHERE id=:id"),
+                {
+                    "checkpoint": json.dumps(checkpoint, ensure_ascii=False),
+                    "now": now.isoformat(),
+                    "id": job_id,
+                },
+            )
+            return self._get(session, job_id)
+
     def complete(self, job_id: str, worker_id: str) -> Job:
         return self._transition(
             job_id,
             JobStatus.COMPLETED,
             owner=worker_id,
             values={"progress": 100, "lease_owner": None, "lease_expires_at": None},
+        )
+
+    def mark_cancelled(self, job_id: str, worker_id: str) -> Job:
+        return self._transition(
+            job_id,
+            JobStatus.CANCELLED,
+            owner=worker_id,
+            values={"lease_owner": None, "lease_expires_at": None},
         )
 
     def fail(
@@ -157,6 +205,47 @@ class JobRepository:
                 "lease_expires_at": None,
             },
         )
+
+    def recover_expired(self, *, now: datetime, max_attempts: int) -> int:
+        with self._session_factory.begin() as session:
+            rows = session.execute(
+                text(
+                    """SELECT * FROM jobs
+                    WHERE status IN ('running','pausing','cancelling')
+                      AND lease_expires_at IS NOT NULL
+                      AND lease_expires_at < :now"""
+                ),
+                {"now": now.isoformat()},
+            ).mappings().all()
+            for row in rows:
+                job = _job(row)
+                ensure_transition(job.status, JobStatus.INTERRUPTED)
+                session.execute(
+                    text(
+                        "UPDATE jobs SET status='interrupted', lease_owner=NULL, "
+                        "lease_expires_at=NULL, updated_at=:now WHERE id=:id"
+                    ),
+                    {"now": now.isoformat(), "id": job.id},
+                )
+                self._event(session, job.id, job.status, JobStatus.INTERRUPTED, now)
+                if job.attempts >= max_attempts:
+                    target = JobStatus.FAILED
+                    session.execute(
+                        text(
+                            "UPDATE jobs SET status='failed', error_code='lease_exhausted', "
+                            "error_summary='worker lease retry limit exhausted', updated_at=:now "
+                            "WHERE id=:id"
+                        ),
+                        {"now": now.isoformat(), "id": job.id},
+                    )
+                else:
+                    target = JobStatus.QUEUED
+                    session.execute(
+                        text("UPDATE jobs SET status='queued', updated_at=:now WHERE id=:id"),
+                        {"now": now.isoformat(), "id": job.id},
+                    )
+                self._event(session, job.id, JobStatus.INTERRUPTED, target, now)
+            return len(rows)
 
     def _transition(
         self,
