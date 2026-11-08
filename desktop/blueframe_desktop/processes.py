@@ -132,6 +132,9 @@ def _run_backend(
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
     from blueframe.security.project_paths import ProjectPathRegistry
+    from blueframe.assets.repository import AssetRepository
+    from blueframe.assets.scanner import AssetScanner
+    from blueframe.assets.models import AssetType
     from blueframe.workers.runner import WorkerRunner
     import threading
 
@@ -153,6 +156,23 @@ def _run_backend(
     analysis_repository = StoryAnalysisRepository(session_factory)
     commentary_repository = CommentaryRepository(session_factory)
     edit_plans = EditPlanRepository(session_factory)
+    asset_repository = AssetRepository(session_factory)
+    def validate_asset(path, asset_type):
+        if asset_type is AssetType.VIDEO:
+            return probe_media(path, tools).model_dump(mode="json")
+        if asset_type is AssetType.AUDIO:
+            import json, subprocess
+            completed = subprocess.run(
+                [str(tools.ffprobe), "-v", "error", "-show_entries", "format=duration:stream=codec_name,sample_rate,channels", "-of", "json", str(path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=30, shell=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if completed.returncode != 0: raise ValueError("无法读取音频素材")
+            payload = json.loads(completed.stdout); streams = payload.get("streams") or []
+            if not streams: raise ValueError("音频素材没有可用音轨")
+            return {"duration_ms": round(float((payload.get("format") or {}).get("duration") or 0) * 1000), "codec": streams[0].get("codec_name")}
+        return {}
+    asset_scanner = AssetScanner(validate_asset)
     asr = AsrService(
         asr_repository,
         FunAsrEngine(
@@ -222,6 +242,8 @@ def _run_backend(
         tts_config_service=tts_config,
         analysis_repository=analysis_repository,
         commentary_repository=commentary_repository,
+        asset_repository=asset_repository,
+        asset_scanner=asset_scanner,
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
     )

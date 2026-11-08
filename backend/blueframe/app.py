@@ -15,6 +15,7 @@ from blueframe.api.dependencies import session_dependency
 from blueframe.api.routes.account import build_account_router
 from blueframe.api.routes.analysis import build_analysis_router
 from blueframe.api.routes.commentary import build_commentary_router
+from blueframe.api.routes.assets import build_assets_router
 from blueframe.api.routes.edit_plans import build_edit_plan_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
@@ -41,6 +42,8 @@ def create_app(
     tts_config_service=None,
     analysis_repository=None,
     commentary_repository=None,
+    asset_repository=None,
+    asset_scanner=None,
     edit_plan_repository=None,
     open_path=None,
 ) -> FastAPI:
@@ -68,6 +71,11 @@ def create_app(
     verifier = SessionTokenVerifier(session_token or generate_session_token())
     require_session = session_dependency(verifier)
     app.include_router(build_system_router(require_session), prefix="/api/v1")
+    if project_path_registry is not None and asset_repository is not None and asset_scanner is not None:
+        app.include_router(
+            build_assets_router(require_session, project_path_registry, asset_repository, asset_scanner),
+            prefix="/api/v1",
+        )
     if provider_config_service is not None or tts_config_service is not None:
         app.include_router(
             build_provider_router(require_session, provider_config_service, tts_config_service),

@@ -10,6 +10,7 @@ import { configureAnalysisStore } from "./stores/analysis";
 import { configureTimelineStore } from "./stores/timeline";
 import { configureTtsSettingsStore } from "./stores/ttsSettings";
 import { configureMovieStore } from "./stores/movie";
+import { configureAssetStore } from "./stores/assets";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
@@ -32,6 +33,7 @@ configureAnalysisStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionTo
 configureTimelineStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureTtsSettingsStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureMovieStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureAssetStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");
 void system.refresh();

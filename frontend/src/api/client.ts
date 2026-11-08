@@ -80,6 +80,19 @@ export interface CommentaryScriptVersion {
   created_at: string;
 }
 
+export interface AssetSummary {
+  id: string;
+  sha256: string;
+  asset_type: "video" | "audio" | "image" | "font";
+  filename: string;
+  origin: string;
+  license_name: string;
+  ownership: "linked" | "managed";
+  available: boolean;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -123,6 +136,8 @@ export interface ApiClient {
   generateCommentary(projectId: string, payload: { voice: string; consent_to_send_transcript: boolean; idempotency_key: string }): Promise<JobSummary>;
   saveCommentary(projectId: string, scriptId: string, payload: { title: string; voice: string; sentences: CommentarySentence[] }): Promise<CommentaryScriptVersion>;
   synthesizeCommentary(projectId: string, scriptId: string, idempotencyKey: string): Promise<JobSummary>;
+  listAssets(assetType?: string): Promise<AssetSummary[]>;
+  importAssets(payload: { root_id: string; relative_paths: string[]; origin: string; license_name: string; ownership: "linked" | "managed" }): Promise<{ items: AssetSummary[]; errors: Array<{ relative_path: string; message: string }> }>;
 }
 
 export function createApiClient(
@@ -197,5 +212,7 @@ export function createApiClient(
     synthesizeCommentary: (projectId, scriptId, idempotencyKey) => request(`/api/v1/projects/${projectId}/commentary/${scriptId}/voice`, {
       method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }),
     }),
+    listAssets: (assetType) => request(`/api/v1/assets${assetType ? `?asset_type=${encodeURIComponent(assetType)}` : ""}`),
+    importAssets: (payload) => request("/api/v1/assets", { method: "POST", body: JSON.stringify(payload) }),
   };
 }
