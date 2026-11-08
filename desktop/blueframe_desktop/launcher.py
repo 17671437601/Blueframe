@@ -32,6 +32,13 @@ def _default_file_dialog() -> list[str]:
     return [] if result is None else [str(path) for path in result]
 
 
+def _default_folder_dialog() -> str | None:
+    import webview
+    result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+    if not result: return None
+    return str(result[0] if isinstance(result, (list, tuple)) else result)
+
+
 def _register_root(api_base_url: str, bridge_secret: str, root: Path) -> str:
     body = json.dumps({"root_path": str(root)}).encode("utf-8")
     request = urllib.request.Request(
@@ -63,6 +70,7 @@ class BootstrapBridge:
     session_token: str
     bridge_secret: str
     file_dialog: Callable[[], list[str]] = _default_file_dialog
+    folder_dialog: Callable[[], str | None] = _default_folder_dialog
     root_registrar: Callable[[str, str, Path], str] = _register_root
     output_opener: Callable[[str, str, str], dict[str, bool]] = _open_project_output
 
@@ -83,6 +91,13 @@ class BootstrapBridge:
             "rootId": root_id,
             "files": [path.relative_to(root).as_posix() for path in selected],
         }
+
+    def select_project_directory(self) -> dict[str, str | None]:
+        selected = self.folder_dialog()
+        if not selected: return {"rootId": None}
+        root = Path(selected).resolve()
+        root_id = self.root_registrar(self.api_base_url, self.bridge_secret, root)
+        return {"rootId": root_id}
 
     def open_project_output(self, project_id: str) -> dict[str, bool]:
         return self.output_opener(self.api_base_url, self.bridge_secret, project_id)

@@ -100,6 +100,11 @@ class RecordingEngine:
         if process is not None: process.stop()
         self.repository.stop_intent(session_id)
 
+    def reconnect(self, session_id: str) -> None:
+        process = self.processes.get(session_id)
+        if process is not None: process.stop()
+        self.poll_and_reconnect(session_id)
+
 
 def redact_stream_secret(message: str, playback_url: str) -> str:
     redacted = message.replace(playback_url, "[redacted-stream-url]")

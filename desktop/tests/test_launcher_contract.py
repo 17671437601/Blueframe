@@ -93,3 +93,13 @@ def test_bridge_opens_output_without_exposing_bridge_secret() -> None:
     )
     assert bridge.open_project_output("project-1") == {"opened": True}
     assert calls == [("http://127.0.0.1:43127", "bridge-secret", "project-1")]
+
+
+def test_bridge_directory_selection_returns_only_registered_root_id(tmp_path) -> None:
+    from blueframe_desktop.launcher import BootstrapBridge
+    bridge = BootstrapBridge(
+        "http://127.0.0.1:43127", "d" * 64, "bridge-secret",
+        folder_dialog=lambda: str(tmp_path),
+        root_registrar=lambda _url, _secret, root: "live-root" if root == tmp_path.resolve() else "wrong",
+    )
+    assert bridge.select_project_directory() == {"rootId": "live-root"}

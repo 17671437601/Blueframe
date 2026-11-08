@@ -291,6 +291,9 @@ def _run_backend(
         asset_repository=asset_repository,
         asset_scanner=asset_scanner,
         variant_batch_repository=variant_batches,
+        recording_repository=recordings,
+        live_credentials=credentials,
+        live_engine=live_engine,
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
     )

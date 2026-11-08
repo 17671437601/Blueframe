@@ -111,6 +111,19 @@ export interface VariantBatchSummary {
   items: VariantItemSummary[];
 }
 
+export interface RecordingSessionSummary {
+  id: string;
+  project_id: string;
+  platform: "douyin" | "authorized_url";
+  display_name: string;
+  intent_active: boolean;
+  status: string;
+  reconnect_count: number;
+  error_summary?: string | null;
+  created_at?: string;
+  segments: Array<{ id: string; sequence: number; status: string; filename: string; duration_ms: number; size_bytes: number }>;
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -159,6 +172,10 @@ export interface ApiClient {
   listVariantBatches(projectId: string): Promise<VariantBatchSummary[]>;
   createVariantBatch(projectId: string, payload: { source_id: string; count: number; seed: number; width: number; height: number; overlay_asset_id?: string; idempotency_key: string }): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
   retryVariantBatch(projectId: string, batchId: string, idempotencyKey: string): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
+  listRecordings(projectId: string): Promise<RecordingSessionSummary[]>;
+  startRecording(projectId: string, payload: { platform: "douyin" | "authorized_url"; display_name: string; playback_url: string; authorization_confirmed: boolean }): Promise<RecordingSessionSummary>;
+  stopRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
+  reconnectRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
 }
 
 export function createApiClient(
@@ -238,5 +255,9 @@ export function createApiClient(
     listVariantBatches: (projectId) => request(`/api/v1/projects/${projectId}/variant-batches`),
     createVariantBatch: (projectId, payload) => request(`/api/v1/projects/${projectId}/variant-batches`, { method: "POST", body: JSON.stringify(payload) }),
     retryVariantBatch: (projectId, batchId, idempotencyKey) => request(`/api/v1/projects/${projectId}/variant-batches/${batchId}/retry`, { method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }) }),
+    listRecordings: (projectId) => request(`/api/v1/projects/${projectId}/recordings`),
+    startRecording: (projectId, payload) => request(`/api/v1/projects/${projectId}/recordings`, { method: "POST", body: JSON.stringify(payload) }),
+    stopRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/stop`, { method: "POST" }),
+    reconnectRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/reconnect`, { method: "POST" }),
   };
 }
