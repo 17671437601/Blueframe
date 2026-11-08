@@ -29,6 +29,11 @@ export interface CreateProjectPayload {
   idempotency_key: string;
 }
 
+export interface VolcengineConfigStatus {
+  configured: boolean;
+  model: string | null;
+}
+
 export interface ApiClient {
   request<T>(path: string, init?: RequestInit): Promise<T>;
   systemStatus(): Promise<{ status: string }>;
@@ -38,6 +43,8 @@ export interface ApiClient {
   createProject(payload: CreateProjectPayload): Promise<ProjectSummary>;
   addProjectSources(projectId: string, relativePaths: string[]): Promise<ProjectSummary["sources"]>;
   transcribeProject(projectId: string): Promise<JobSummary>;
+  getVolcengineConfig(): Promise<VolcengineConfigStatus>;
+  saveVolcengineConfig(payload: { model: string; api_key?: string }): Promise<VolcengineConfigStatus>;
 }
 
 export function createApiClient(
@@ -77,5 +84,9 @@ export function createApiClient(
       }),
     transcribeProject: (projectId) =>
       request(`/api/v1/projects/${projectId}/transcribe`, { method: "POST" }),
+    getVolcengineConfig: () => request("/api/v1/providers/volcengine"),
+    saveVolcengineConfig: (payload) => request("/api/v1/providers/volcengine", {
+      method: "PUT", body: JSON.stringify(payload),
+    }),
   };
 }

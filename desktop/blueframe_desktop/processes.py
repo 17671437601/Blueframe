@@ -103,6 +103,7 @@ def _run_backend(
 
     from blueframe.app import create_app
     from blueframe.auth.service import StandaloneAccountService
+    from blueframe.auth.credential_store import WindowsCredentialStore
     from blueframe.asr.funasr_engine import FunAsrEngine
     from blueframe.asr.repository import AsrRepository
     from blueframe.asr.service import AsrService
@@ -114,6 +115,7 @@ def _run_backend(
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
     from blueframe.projects.repository import ProjectRepository
+    from blueframe.providers.volcengine.config_service import ArkConfigService
     from blueframe.security.project_paths import ProjectPathRegistry
     from blueframe.workers.runner import WorkerRunner
     import threading
@@ -127,6 +129,9 @@ def _run_backend(
     jobs = JobRepository(session_factory)
     projects = ProjectRepository(session_factory)
     roots = ProjectPathRegistry()
+    provider_config = ArkConfigService(
+        data_dir / "providers.json", WindowsCredentialStore()
+    )
     tools = discover_executables(search_roots=[repository_root.parent, repository_root])
     model_root = repository_root.parent / "model" / "hub" / "iic"
     asr = AsrService(
@@ -161,5 +166,6 @@ def _run_backend(
         project_path_registry=roots,
         media_probe=lambda path: probe_media(path, tools),
         bridge_secret=bridge_secret,
+        provider_config_service=provider_config,
     )
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
