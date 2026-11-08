@@ -14,6 +14,7 @@ from blueframe.db.engine import create_engine_and_session
 from blueframe.api.dependencies import session_dependency
 from blueframe.api.routes.account import build_account_router
 from blueframe.api.routes.analysis import build_analysis_router
+from blueframe.api.routes.edit_plans import build_edit_plan_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
 from blueframe.api.routes.providers import build_provider_router
@@ -37,6 +38,8 @@ def create_app(
     bridge_secret: str | None = None,
     provider_config_service=None,
     analysis_repository=None,
+    edit_plan_repository=None,
+    open_path=None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
@@ -96,6 +99,25 @@ def create_app(
             except (OSError, ValueError):
                 raise HTTPException(400, detail="invalid project root")
             return {"root_id": root_id}
+    if bridge_secret is not None and project_repository is not None and open_path is not None:
+        @app.post(
+            "/internal/projects/{project_id}/open-output",
+            include_in_schema=False,
+        )
+        def open_project_output(
+            project_id: str,
+            supplied_secret: str | None = Header(None, alias="X-BlueFrame-Bridge"),
+        ) -> dict[str, bool]:
+            if supplied_secret is None or not hmac.compare_digest(supplied_secret, bridge_secret):
+                raise HTTPException(401, detail="bridge authentication required")
+            project = project_repository.get(project_id)
+            if project is None:
+                raise HTTPException(404, detail="project not found")
+            from blueframe.security.project_paths import resolve_within_root
+            output = resolve_within_root(project.root_path, project.output_relative_path)
+            output.mkdir(parents=True, exist_ok=True)
+            open_path(output)
+            return {"opened": True}
     if all(
         dependency is not None
         for dependency in (
@@ -121,6 +143,22 @@ def create_app(
         dependency is not None
         for dependency in (
             project_repository,
+            edit_plan_repository,
+            job_repository,
+            account_service,
+        )
+    ):
+        app.include_router(
+            build_edit_plan_router(
+                require_session, project_repository, edit_plan_repository,
+                job_repository, account_service,
+            ),
+            prefix="/api/v1",
+        )
+    if all(
+        dependency is not None
+        for dependency in (
+            project_repository,
             job_repository,
             analysis_repository,
             account_service,
@@ -135,6 +173,7 @@ def create_app(
                 analysis_repository,
                 account_service,
                 provider_config_service,
+                edit_plan_repository,
             ),
             prefix="/api/v1",
         )

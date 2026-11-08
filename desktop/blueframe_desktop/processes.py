@@ -194,5 +194,7 @@ def _run_backend(
         bridge_secret=bridge_secret,
         provider_config_service=provider_config,
         analysis_repository=analysis_repository,
+        edit_plan_repository=edit_plans,
+        open_path=lambda path: os.startfile(path),
     )
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

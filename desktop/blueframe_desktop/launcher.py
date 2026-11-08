@@ -46,6 +46,17 @@ def _register_root(api_base_url: str, bridge_secret: str, root: Path) -> str:
         return str(json.load(response)["root_id"])
 
 
+def _open_project_output(api_base_url: str, bridge_secret: str, project_id: str) -> dict[str, bool]:
+    request = urllib.request.Request(
+        f"{api_base_url}/internal/projects/{project_id}/open-output",
+        data=b"",
+        headers={"X-BlueFrame-Bridge": bridge_secret},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        return dict(json.load(response))
+
+
 @dataclass(frozen=True)
 class BootstrapBridge:
     api_base_url: str
@@ -53,6 +64,7 @@ class BootstrapBridge:
     bridge_secret: str
     file_dialog: Callable[[], list[str]] = _default_file_dialog
     root_registrar: Callable[[str, str, Path], str] = _register_root
+    output_opener: Callable[[str, str, str], dict[str, bool]] = _open_project_output
 
     def get_bootstrap(self) -> dict[str, str]:
         return {
@@ -71,6 +83,9 @@ class BootstrapBridge:
             "rootId": root_id,
             "files": [path.relative_to(root).as_posix() for path in selected],
         }
+
+    def open_project_output(self, project_id: str) -> dict[str, bool]:
+        return self.output_opener(self.api_base_url, self.bridge_secret, project_id)
 
 
 def launch(

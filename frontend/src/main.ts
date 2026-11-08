@@ -7,6 +7,7 @@ import { configureSystemStore } from "./stores/system";
 import { configureProjectStore } from "./stores/projects";
 import { configureProviderSettingsStore } from "./stores/providerSettings";
 import { configureAnalysisStore } from "./stores/analysis";
+import { configureTimelineStore } from "./stores/timeline";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
@@ -26,6 +27,7 @@ const system = configureSystemStore(createApiClient(bootstrap.apiBaseUrl, bootst
 configureProjectStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureProviderSettingsStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureAnalysisStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureTimelineStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");
 void system.refresh();

@@ -81,3 +81,15 @@ def test_bridge_file_selection_returns_only_root_id_and_relative_paths(tmp_path)
 
     assert selection == {"rootId": "root-id", "files": ["01.mp4", "02.mp4"]}
     assert str(root) not in str(selection)
+
+
+def test_bridge_opens_output_without_exposing_bridge_secret() -> None:
+    from blueframe_desktop.launcher import BootstrapBridge
+
+    calls = []
+    bridge = BootstrapBridge(
+        "http://127.0.0.1:43127", "d" * 64, "bridge-secret",
+        output_opener=lambda url, secret, project: calls.append((url, secret, project)) or {"opened": True},
+    )
+    assert bridge.open_project_output("project-1") == {"opened": True}
+    assert calls == [("http://127.0.0.1:43127", "bridge-secret", "project-1")]

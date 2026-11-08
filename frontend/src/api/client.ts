@@ -37,6 +37,24 @@ export interface ProjectSummary {
   sources?: Array<{ id: string; relative_path: string; media_info?: Record<string, unknown> }>;
 }
 
+export interface EditSegment {
+  source_id: string;
+  source_start_ms: number;
+  source_end_ms: number;
+  source_duration_ms: number;
+}
+
+export interface EditPlan {
+  id: string;
+  project_id?: string;
+  version: number;
+  title: string;
+  kind: "highlight" | "remix" | "commentary";
+  target_duration_ms: number;
+  duration_ms?: number;
+  segments: EditSegment[];
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -65,6 +83,10 @@ export interface ApiClient {
   listAnalyses(projectId: string): Promise<StoryAnalysisVersion[]>;
   startAnalysis(projectId: string, idempotencyKey: string): Promise<JobSummary>;
   acceptAnalysis(projectId: string, version: number): Promise<StoryAnalysisVersion>;
+  getProject(projectId: string): Promise<ProjectSummary>;
+  listEditPlans(projectId: string): Promise<EditPlan[]>;
+  saveEditPlan(projectId: string, payload: Omit<EditPlan, "id" | "version" | "project_id" | "duration_ms"> & { idempotency_key: string }): Promise<EditPlan>;
+  renderEditPlan(projectId: string, planId: string): Promise<JobSummary>;
 }
 
 export function createApiClient(
@@ -116,5 +138,12 @@ export function createApiClient(
       }),
     acceptAnalysis: (projectId, version) =>
       request(`/api/v1/projects/${projectId}/analyses/${version}/accept`, { method: "POST" }),
+    getProject: (projectId) => request(`/api/v1/projects/${projectId}`),
+    listEditPlans: (projectId) => request(`/api/v1/projects/${projectId}/edit-plans`),
+    saveEditPlan: (projectId, payload) => request(`/api/v1/projects/${projectId}/edit-plans`, {
+      method: "POST", body: JSON.stringify(payload),
+    }),
+    renderEditPlan: (projectId, planId) =>
+      request(`/api/v1/projects/${projectId}/edit-plans/${planId}/render`, { method: "POST" }),
   };
 }

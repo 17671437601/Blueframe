@@ -41,5 +41,6 @@ async function accept(version: number) { if (props.accept) await props.accept(pr
       <article class="panel story-summary"><header><h3>剧情总览</h3><em v-if="latest">版本 {{ latest.version }}</em></header><div class="analysis-body"><p>{{ latest?.analysis.episode_summary || "完成本地识别后启动智能分析。" }}</p><div v-if="latest" class="character-chips"><span v-for="character in latest.analysis.characters" :key="character.name">{{ character.name }} · {{ character.role }}</span></div></div></article>
     </div>
     <article v-if="latest" class="panel explosion-panel"><header><h3>高能点候选</h3><button v-if="!latest.accepted" class="button button--primary" data-testid="accept-analysis" @click="accept(latest.version)">接受此版本</button><span v-else class="live-chip"><i />已锁定</span></header><div class="explosion-list"><div v-for="item in latest.analysis.explosions" :key="`${item.start_ms}-${item.title}`"><b>{{ item.score }}</b><span><strong>{{ item.title }}</strong><small>{{ item.reason }} · {{ (item.start_ms / 1000).toFixed(1) }}s</small></span></div><p v-if="!latest.analysis.explosions.length" class="section-help">暂无高能点候选</p></div></article>
+    <div v-if="latest?.accepted" class="wizard-actions"><a class="button button--primary analysis-link" :href="`#/drama/${projectId}/edit`">进入成片编辑器</a></div>
   </section>
 </template>

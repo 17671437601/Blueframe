@@ -1,4 +1,6 @@
 from pathlib import Path
+from types import SimpleNamespace
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
@@ -9,6 +11,8 @@ from blueframe.jobs.repository import JobRepository
 from blueframe.projects.models import ProjectType
 from blueframe.projects.repository import ProjectRepository
 from blueframe.providers.volcengine.config_service import ArkConfigStatus
+from blueframe.api.routes.analysis import _create_initial_plan
+from blueframe.drama.models import EdlCandidate, StoryAnalysis, StoryAnalysisVersion
 
 
 HEADERS = {"X-BlueFrame-Session": "a" * 64}
@@ -75,3 +79,25 @@ def test_analysis_can_be_queued_listed_and_retried(migrated_session_factory, tmp
     assert first.status_code == retry.status_code == 202
     assert first.json()["id"] != retry.json()["id"]
     assert listed.json() == []
+
+
+def test_acceptance_maps_global_ai_ranges_across_source_boundaries() -> None:
+    saved = []
+    plans = SimpleNamespace(save=lambda project, draft, idempotency_key: saved.append((project, draft, idempotency_key)))
+    version = StoryAnalysisVersion(
+        id="analysis-1", project_id="project-1", version=1, prompt_version="v1",
+        provider="fixture", model="m", accepted=True, created_at=datetime.now(UTC),
+        analysis=StoryAnalysis(
+            episode_summary="summary", media_duration_ms=10_000,
+            edit_candidates=(EdlCandidate(title="跨集高光", rationale="反转", segments=((4000, 6000),)),),
+        ),
+    )
+    sources = [
+        SimpleNamespace(id="s1", media_info={"duration_ms": 5000}),
+        SimpleNamespace(id="s2", media_info={"duration_ms": 5000}),
+    ]
+    _create_initial_plan("project-1", version, sources, plans)
+    segments = saved[0][1].segments
+    assert [(item.source_id, item.source_start_ms, item.source_end_ms) for item in segments] == [
+        ("s1", 4000, 5000), ("s2", 0, 1000),
+    ]

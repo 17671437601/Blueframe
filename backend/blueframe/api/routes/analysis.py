@@ -19,6 +19,7 @@ def build_analysis_router(
     analyses,
     account_service,
     provider_config_service,
+    edit_plan_repository=None,
 ) -> APIRouter:
     router = APIRouter(prefix="/projects", dependencies=[Depends(auth)])
 
@@ -79,9 +80,14 @@ def build_analysis_router(
     def accept_analysis(project_id: str, version: int):
         require_project(project_id)
         try:
-            return analyses.accept(
+            accepted = analyses.accept(
                 project_id=project_id, version=version
-            ).model_dump(mode="json")
+            )
+            if edit_plan_repository is not None and not edit_plan_repository.list_for_project(project_id):
+                _create_initial_plan(
+                    project_id, accepted, projects.list_sources(project_id), edit_plan_repository
+                )
+            return accepted.model_dump(mode="json")
         except KeyError as error:
             raise HTTPException(
                 404,
@@ -89,3 +95,48 @@ def build_analysis_router(
             ) from error
 
     return router
+
+
+def _create_initial_plan(project_id, version, sources, plans) -> None:
+    from blueframe.editing.models import EditPlanDraft, EditSegment, PlanKind
+
+    ranges = []
+    if version.analysis.edit_candidates:
+        candidate = version.analysis.edit_candidates[0]
+        ranges = list(candidate.segments)
+        title = candidate.title
+    else:
+        ranges = [(item.start_ms, item.end_ms) for item in version.analysis.explosions]
+        title = "AI 高光方案"
+    if not ranges:
+        return
+    source_ranges = []
+    offset = 0
+    for source in sources:
+        duration = int((source.media_info or {}).get("duration_ms") or 0)
+        if duration > 0:
+            source_ranges.append((source, offset, offset + duration, duration))
+            offset += duration
+    segments = []
+    for global_start, global_end in ranges:
+        for source, source_start, source_end, duration in source_ranges:
+            overlap_start = max(global_start, source_start)
+            overlap_end = min(global_end, source_end)
+            if overlap_end - overlap_start >= 500:
+                segments.append(EditSegment(
+                    source_id=source.id,
+                    source_start_ms=overlap_start - source_start,
+                    source_end_ms=overlap_end - source_start,
+                    source_duration_ms=duration,
+                ))
+    if not segments:
+        return
+    plans.save(
+        project_id,
+        EditPlanDraft(
+            title=title, kind=PlanKind.HIGHLIGHT,
+            target_duration_ms=sum(item.duration_ms for item in segments),
+            segments=tuple(segments),
+        ),
+        idempotency_key=f"analysis:{version.id}:candidate:0",
+    )
