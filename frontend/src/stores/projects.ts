@@ -39,7 +39,7 @@ export class ProjectStore {
         idempotency_key: crypto.randomUUID(),
       });
       await this.api.addProjectSources(project.id, selection.files);
-      await this.api.transcribeProject(project.id);
+      if (selection.projectType !== "variants") await this.api.transcribeProject(project.id);
       this.projects.unshift(project);
       return project;
     } catch (error) {

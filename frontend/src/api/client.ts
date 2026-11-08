@@ -93,6 +93,24 @@ export interface AssetSummary {
   created_at?: string;
 }
 
+export interface VariantItemSummary {
+  id: string;
+  item_index: number;
+  status: string;
+  recipe: { seed: number; width: number; height: number; saturation: number; brightness: number; speed: number; audio_gain_db: number; video_bitrate: string; overlay_asset_id?: string | null };
+  output_filename?: string | null;
+  error_summary?: string | null;
+}
+
+export interface VariantBatchSummary {
+  id: string;
+  project_id: string;
+  source_id: string;
+  status: string;
+  created_at: string;
+  items: VariantItemSummary[];
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -138,6 +156,9 @@ export interface ApiClient {
   synthesizeCommentary(projectId: string, scriptId: string, idempotencyKey: string): Promise<JobSummary>;
   listAssets(assetType?: string): Promise<AssetSummary[]>;
   importAssets(payload: { root_id: string; relative_paths: string[]; origin: string; license_name: string; ownership: "linked" | "managed" }): Promise<{ items: AssetSummary[]; errors: Array<{ relative_path: string; message: string }> }>;
+  listVariantBatches(projectId: string): Promise<VariantBatchSummary[]>;
+  createVariantBatch(projectId: string, payload: { source_id: string; count: number; seed: number; width: number; height: number; overlay_asset_id?: string; idempotency_key: string }): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
+  retryVariantBatch(projectId: string, batchId: string, idempotencyKey: string): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
 }
 
 export function createApiClient(
@@ -214,5 +235,8 @@ export function createApiClient(
     }),
     listAssets: (assetType) => request(`/api/v1/assets${assetType ? `?asset_type=${encodeURIComponent(assetType)}` : ""}`),
     importAssets: (payload) => request("/api/v1/assets", { method: "POST", body: JSON.stringify(payload) }),
+    listVariantBatches: (projectId) => request(`/api/v1/projects/${projectId}/variant-batches`),
+    createVariantBatch: (projectId, payload) => request(`/api/v1/projects/${projectId}/variant-batches`, { method: "POST", body: JSON.stringify(payload) }),
+    retryVariantBatch: (projectId, batchId, idempotencyKey) => request(`/api/v1/projects/${projectId}/variant-batches/${batchId}/retry`, { method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }) }),
   };
 }

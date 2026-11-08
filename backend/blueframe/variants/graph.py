@@ -5,7 +5,7 @@ from pathlib import Path
 from blueframe.variants.models import VariantRecipe
 
 
-def build_variant_command(ffmpeg: Path, source: Path, output: Path, recipe: VariantRecipe, *, overlay_path: Path | None = None) -> list[str]:
+def build_variant_command(ffmpeg: Path, source: Path, output: Path, recipe: VariantRecipe, *, overlay_path: Path | None = None, has_audio: bool = True) -> list[str]:
     if recipe.overlay_asset_id and overlay_path is None:
         raise ValueError("variant recipe requires its licensed overlay asset")
     command = [str(ffmpeg), "-hide_banner", "-nostdin", "-y", "-i", str(source)]
@@ -14,7 +14,8 @@ def build_variant_command(ffmpeg: Path, source: Path, output: Path, recipe: Vari
         f"crop={recipe.width}:{recipe.height},"
         f"eq=saturation={recipe.saturation}:brightness={recipe.brightness},"
         f"setpts=PTS/{recipe.speed}[vbase]",
-        f"[0:a:0]atempo={recipe.speed},volume={recipe.audio_gain_db}dB,aresample=48000[aout]",
+        (f"[0:a:0]atempo={recipe.speed},volume={recipe.audio_gain_db}dB,aresample=48000[aout]"
+         if has_audio else "anullsrc=r=48000:cl=stereo,asetpts=N/SR/TB[aout]"),
     ]
     video_label = "vbase"
     if overlay_path is not None:
@@ -28,6 +29,6 @@ def build_variant_command(ffmpeg: Path, source: Path, output: Path, recipe: Vari
         "-filter_complex", ";".join(filters), "-map", f"[{video_label}]", "-map", "[aout]",
         "-c:v", "libx264", "-preset", "medium", "-b:v", recipe.video_bitrate,
         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
-        "-progress", "pipe:1", "-nostats", str(output),
+        "-shortest", "-progress", "pipe:1", "-nostats", str(output),
     ])
     return command

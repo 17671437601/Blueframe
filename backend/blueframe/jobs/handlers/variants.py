@@ -41,12 +41,16 @@ class VariantBatchHandler:
             temporary = work / f"variant-{item.item_index:03d}.partial.mp4"
             overlay_path = None
             if item.recipe.overlay_asset_id:
-                asset = None if self.assets is None else self.assets.refresh_availability(item.recipe.overlay_asset_id)
+                try: asset = None if self.assets is None else self.assets.refresh_availability(item.recipe.overlay_asset_id)
+                except KeyError: asset = None
                 if asset is None or not asset.available: 
                     self.batches.update_item(item.id, status="failed", error_summary="包装图片不可用")
                     continue
                 overlay_path = asset.path
-            command = build_variant_command(self.ffmpeg, source_path, temporary, item.recipe, overlay_path=overlay_path)
+            command = build_variant_command(
+                self.ffmpeg, source_path, temporary, item.recipe, overlay_path=overlay_path,
+                has_audio=bool((source.media_info or {}).get("has_audio")),
+            )
             try:
                 code = self.executor.run(command, on_output=lambda _line: control.heartbeat(), should_stop=lambda: control.pause_requested or control.cancel_requested)
                 if code != 0: raise RuntimeError(f"FFmpeg exited with code {code}")
