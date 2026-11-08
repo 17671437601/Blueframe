@@ -1,0 +1,1 @@
+"""Authorized live recording domain."""
