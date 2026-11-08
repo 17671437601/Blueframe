@@ -16,6 +16,7 @@ from blueframe.api.routes.account import build_account_router
 from blueframe.api.routes.analysis import build_analysis_router
 from blueframe.api.routes.commentary import build_commentary_router
 from blueframe.api.routes.assets import build_assets_router
+from blueframe.api.routes.variants import build_variants_router
 from blueframe.api.routes.edit_plans import build_edit_plan_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
@@ -44,6 +45,7 @@ def create_app(
     commentary_repository=None,
     asset_repository=None,
     asset_scanner=None,
+    variant_batch_repository=None,
     edit_plan_repository=None,
     open_path=None,
 ) -> FastAPI:
@@ -75,6 +77,15 @@ def create_app(
         app.include_router(
             build_assets_router(require_session, project_path_registry, asset_repository, asset_scanner),
             prefix="/api/v1",
+        )
+    if all(dependency is not None for dependency in (
+        project_repository, variant_batch_repository, job_repository, account_service,
+    )):
+        app.include_router(
+            build_variants_router(
+                require_session, project_repository, variant_batch_repository,
+                job_repository, account_service, asset_repository,
+            ), prefix="/api/v1",
         )
     if provider_config_service is not None or tts_config_service is not None:
         app.include_router(

@@ -115,6 +115,7 @@ def _run_backend(
     from blueframe.jobs.handlers.render import RenderProjectHandler
     from blueframe.jobs.handlers.commentary import ProjectCommentaryHandler
     from blueframe.jobs.handlers.commentary_voice import CommentaryVoiceHandler
+    from blueframe.jobs.handlers.variants import VariantBatchHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
@@ -128,6 +129,7 @@ def _run_backend(
     from blueframe.commentary.repository import CommentaryRepository
     from blueframe.commentary.service import CommentaryService
     from blueframe.commentary.voice import FfmpegAudioAssembler, VoiceTimelineService
+    from blueframe.variants.repository import VariantBatchRepository
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
@@ -157,6 +159,7 @@ def _run_backend(
     commentary_repository = CommentaryRepository(session_factory)
     edit_plans = EditPlanRepository(session_factory)
     asset_repository = AssetRepository(session_factory)
+    variant_batches = VariantBatchRepository(session_factory)
     def validate_asset(path, asset_type):
         if asset_type is AssetType.VIDEO:
             return probe_media(path, tools).model_dump(mode="json")
@@ -207,6 +210,10 @@ def _run_backend(
                     FfmpegAudioAssembler(tools.ffmpeg),
                 ),
             ),
+            "render_variant_batch": VariantBatchHandler(
+                projects, variant_batches, FfmpegExecutor(), tools.ffmpeg,
+                probe=lambda path: probe_media(path, tools), assets=asset_repository,
+            ),
             "render_edit_plan": RenderProjectHandler(
                 projects,
                 edit_plans,
@@ -244,6 +251,7 @@ def _run_backend(
         commentary_repository=commentary_repository,
         asset_repository=asset_repository,
         asset_scanner=asset_scanner,
+        variant_batch_repository=variant_batches,
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
     )
