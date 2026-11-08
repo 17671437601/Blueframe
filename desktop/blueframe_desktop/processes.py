@@ -112,6 +112,7 @@ def _run_backend(
     from blueframe.jobs.repository import JobRepository
     from blueframe.jobs.handlers.media import ProjectTranscriptionHandler
     from blueframe.jobs.handlers.analysis import ProjectAnalysisHandler
+    from blueframe.jobs.handlers.render import RenderProjectHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
@@ -119,6 +120,9 @@ def _run_backend(
     from blueframe.providers.volcengine.config_service import ArkConfigService, DynamicArkAiProvider
     from blueframe.drama.analysis_service import AnalysisService
     from blueframe.drama.repository import StoryAnalysisRepository
+    from blueframe.editing.repository import EditPlanRepository
+    from blueframe.rendering.artifacts import RenderArtifactRepository
+    from blueframe.rendering.service import FfmpegExecutor, RenderService
     from blueframe.security.project_paths import ProjectPathRegistry
     from blueframe.workers.runner import WorkerRunner
     import threading
@@ -139,6 +143,7 @@ def _run_backend(
     model_root = repository_root.parent / "model" / "hub" / "iic"
     asr_repository = AsrRepository(session_factory)
     analysis_repository = StoryAnalysisRepository(session_factory)
+    edit_plans = EditPlanRepository(session_factory)
     asr = AsrService(
         asr_repository,
         FunAsrEngine(
@@ -155,6 +160,16 @@ def _run_backend(
             "analyze_project": ProjectAnalysisHandler(
                 asr_repository,
                 AnalysisService(DynamicArkAiProvider(provider_config), analysis_repository),
+            ),
+            "render_edit_plan": RenderProjectHandler(
+                projects,
+                edit_plans,
+                RenderService(
+                    RenderArtifactRepository(session_factory),
+                    executor=FfmpegExecutor(),
+                    probe=lambda path: probe_media(path, tools),
+                ),
+                tools.ffmpeg,
             ),
         },
         worker_id=f"desktop-{os.getpid()}",
