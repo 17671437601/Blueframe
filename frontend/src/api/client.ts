@@ -55,6 +55,31 @@ export interface EditPlan {
   segments: EditSegment[];
 }
 
+export interface SourceCitation {
+  source_id: string;
+  start_ms: number;
+  end_ms: number;
+  quote: string;
+}
+
+export interface CommentarySentence {
+  text: string;
+  citations: SourceCitation[];
+  manual: boolean;
+}
+
+export interface CommentaryScriptVersion {
+  id: string;
+  project_id: string;
+  version: number;
+  title: string;
+  voice: string;
+  sentences: CommentarySentence[];
+  provider: string;
+  model: string;
+  created_at: string;
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -93,7 +118,11 @@ export interface ApiClient {
   getProject(projectId: string): Promise<ProjectSummary>;
   listEditPlans(projectId: string): Promise<EditPlan[]>;
   saveEditPlan(projectId: string, payload: Omit<EditPlan, "id" | "version" | "project_id" | "duration_ms"> & { idempotency_key: string }): Promise<EditPlan>;
-  renderEditPlan(projectId: string, planId: string): Promise<JobSummary>;
+  renderEditPlan(projectId: string, planId: string, scriptId?: string): Promise<JobSummary>;
+  listCommentary(projectId: string): Promise<CommentaryScriptVersion[]>;
+  generateCommentary(projectId: string, payload: { voice: string; consent_to_send_transcript: boolean; idempotency_key: string }): Promise<JobSummary>;
+  saveCommentary(projectId: string, scriptId: string, payload: { title: string; voice: string; sentences: CommentarySentence[] }): Promise<CommentaryScriptVersion>;
+  synthesizeCommentary(projectId: string, scriptId: string, idempotencyKey: string): Promise<JobSummary>;
 }
 
 export function createApiClient(
@@ -154,7 +183,19 @@ export function createApiClient(
     saveEditPlan: (projectId, payload) => request(`/api/v1/projects/${projectId}/edit-plans`, {
       method: "POST", body: JSON.stringify(payload),
     }),
-    renderEditPlan: (projectId, planId) =>
-      request(`/api/v1/projects/${projectId}/edit-plans/${planId}/render`, { method: "POST" }),
+    renderEditPlan: (projectId, planId, scriptId) =>
+      request(`/api/v1/projects/${projectId}/edit-plans/${planId}/render`, {
+        method: "POST", ...(scriptId ? { body: JSON.stringify({ script_id: scriptId }) } : {}),
+      }),
+    listCommentary: (projectId) => request(`/api/v1/projects/${projectId}/commentary`),
+    generateCommentary: (projectId, payload) => request(`/api/v1/projects/${projectId}/commentary/generate`, {
+      method: "POST", body: JSON.stringify(payload),
+    }),
+    saveCommentary: (projectId, scriptId, payload) => request(`/api/v1/projects/${projectId}/commentary/${scriptId}`, {
+      method: "PUT", body: JSON.stringify(payload),
+    }),
+    synthesizeCommentary: (projectId, scriptId, idempotencyKey) => request(`/api/v1/projects/${projectId}/commentary/${scriptId}/voice`, {
+      method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }),
+    }),
   };
 }

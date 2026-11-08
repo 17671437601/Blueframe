@@ -36,11 +36,13 @@ def test_edit_plan_api_saves_versions_and_queues_render(migrated_session_factory
         render = api.post(
             f"/api/v1/projects/{project.id}/edit-plans/{created.json()['id']}/render",
             headers=HEADERS,
+            json={"script_id": "script-a"},
         )
     assert created.status_code == 201
     assert listed.json()[0]["duration_ms"] == 3000
     assert render.status_code == 202
     assert render.json()["job_type"] == "render_edit_plan"
+    assert render.json()["payload"]["script_id"] == "script-a"
 
 
 def test_edit_plan_api_rejects_cross_project_plan(migrated_session_factory, tmp_path: Path) -> None:

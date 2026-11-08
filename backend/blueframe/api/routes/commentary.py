@@ -29,7 +29,12 @@ class RegenerateSentenceRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
-def build_commentary_router(auth, projects, jobs, scripts, account_service, provider_config_service) -> APIRouter:
+class SynthesizeCommentaryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+def build_commentary_router(auth, projects, jobs, scripts, account_service, provider_config_service, tts_config_service=None) -> APIRouter:
     router = APIRouter(prefix="/projects", dependencies=[Depends(auth)])
 
     def require_project(project_id: str):
@@ -80,6 +85,20 @@ def build_commentary_router(auth, projects, jobs, scripts, account_service, prov
         return jobs.create("generate_commentary", {
             "project_id": project_id, "script_id": script_id, "sentence_index": sentence_index,
             "transcript_consent": True,
+        }, request.idempotency_key).model_dump(mode="json")
+
+    @router.post("/{project_id}/commentary/{script_id}/voice", status_code=status.HTTP_202_ACCEPTED)
+    def synthesize_script(project_id: str, script_id: str, request: SynthesizeCommentaryRequest):
+        require_project(project_id)
+        base = scripts.get(script_id)
+        if base is None or base.project_id != project_id:
+            raise HTTPException(404, detail={"code": "commentary_not_found", "message": "解说稿不存在"})
+        if not base.sentences:
+            raise HTTPException(400, detail={"code": "commentary_empty", "message": "请先填写解说内容"})
+        if tts_config_service is None or not tts_config_service.status().configured:
+            raise HTTPException(409, detail={"code": "tts_not_configured", "message": "请先配置火山语音服务"})
+        return jobs.create("synthesize_commentary", {
+            "project_id": project_id, "script_id": script_id,
         }, request.idempotency_key).model_dump(mode="json")
 
     return router

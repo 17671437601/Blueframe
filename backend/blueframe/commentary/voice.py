@@ -86,7 +86,9 @@ class VoiceTimelineService:
                 start_ms=sentence_start, end_ms=cursor, citations=sentence.citations,
             ))
         narration_path = output_root / f"{script.id}-v{script.version}-narration.mp3"
-        self.assembler.assemble(audio_paths, narration_path)
+        temporary_narration = narration_path.with_suffix(".partial.mp3")
+        self.assembler.assemble(audio_paths, temporary_narration)
+        os.replace(temporary_narration, narration_path)
         return VoiceTimeline(narration_path=narration_path, duration_ms=cursor, entries=tuple(entries))
 
 

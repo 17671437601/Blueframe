@@ -188,6 +188,7 @@ def create_app(
             build_commentary_router(
                 require_session, project_repository, job_repository,
                 commentary_repository, account_service, provider_config_service,
+                tts_config_service,
             ), prefix="/api/v1",
         )
 

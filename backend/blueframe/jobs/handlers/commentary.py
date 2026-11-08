@@ -13,6 +13,8 @@ class ProjectCommentaryHandler:
     def run(self, job: Job, checkpoint: dict | None, control: WorkerControl) -> JobResult:
         project_id = str(job.payload["project_id"])
         documents = tuple(self.asr.list_for_project(project_id))
+        if not documents:
+            raise ValueError("本地字幕识别尚未完成")
         script_id = job.payload.get("script_id")
         if script_id is None:
             result = self.commentary.generate(

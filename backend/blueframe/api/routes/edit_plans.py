@@ -17,6 +17,11 @@ class SaveEditPlanRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
+class RenderEditPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    script_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
 def build_edit_plan_router(auth, projects, plans, jobs, account_service) -> APIRouter:
     router = APIRouter(prefix="/projects", dependencies=[Depends(auth)])
 
@@ -47,14 +52,17 @@ def build_edit_plan_router(auth, projects, plans, jobs, account_service) -> APIR
         ).model_dump(mode="json")
 
     @router.post("/{project_id}/edit-plans/{plan_id}/render", status_code=status.HTTP_202_ACCEPTED)
-    def render_plan(project_id: str, plan_id: str):
+    def render_plan(project_id: str, plan_id: str, request: RenderEditPlanRequest | None = None):
         project(project_id); writable()
         plan = plans.get(plan_id)
         if plan is None or plan.project_id != project_id:
             raise HTTPException(404, detail={"code": "edit_plan_not_found", "message": "剪辑方案不存在"})
+        script_id = None if request is None else request.script_id
+        payload = {"project_id": project_id, "plan_id": plan_id}
+        if script_id: payload["script_id"] = script_id
         return jobs.create(
-            "render_edit_plan", {"project_id": project_id, "plan_id": plan_id},
-            f"render:{project_id}:{plan_id}",
+            "render_edit_plan", payload,
+            f"render:{project_id}:{plan_id}:{script_id or 'original'}",
         ).model_dump(mode="json")
 
     return router

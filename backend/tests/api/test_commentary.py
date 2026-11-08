@@ -18,6 +18,10 @@ class ConfigState:
     def status(self): return ArkConfigStatus(configured=True, model="ep-test")
 
 
+class TtsState:
+    def status(self): return type("Status", (), {"configured": True})()
+
+
 def test_commentary_api_queues_generation_and_versions_manual_edits(migrated_session_factory, tmp_path: Path) -> None:
     projects = ProjectRepository(migrated_session_factory)
     project = projects.create(
@@ -28,7 +32,7 @@ def test_commentary_api_queues_generation_and_versions_manual_edits(migrated_ses
     app = create_app(
         session_token="a" * 64, project_repository=projects,
         job_repository=JobRepository(migrated_session_factory), account_service=StandaloneAccountService(),
-        commentary_repository=scripts, provider_config_service=ConfigState(),
+        commentary_repository=scripts, provider_config_service=ConfigState(), tts_config_service=TtsState(),
     )
     with TestClient(app) as client:
         queued = client.post(f"/api/v1/projects/{project.id}/commentary/generate", headers=HEADERS, json={
@@ -42,11 +46,14 @@ def test_commentary_api_queues_generation_and_versions_manual_edits(migrated_ses
             "title": "人工稿", "voice": "voice-b",
             "sentences": [{"text": "这是人工补写的开场。", "citations": [], "manual": True}],
         })
+        voiced = client.post(f"/api/v1/projects/{project.id}/commentary/{edited.json()['id']}/voice", headers=HEADERS, json={"idempotency_key": "voice-one"})
         listed = client.get(f"/api/v1/projects/{project.id}/commentary", headers=HEADERS)
 
     assert queued.status_code == 202
     assert queued.json()["job_type"] == "generate_commentary"
     assert edited.status_code == 200
+    assert voiced.status_code == 202
+    assert voiced.json()["job_type"] == "synthesize_commentary"
     assert edited.json()["version"] == 2
     assert [item["version"] for item in listed.json()] == [2, 1]
 
