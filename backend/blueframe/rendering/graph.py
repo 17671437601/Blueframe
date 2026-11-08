@@ -35,6 +35,7 @@ class RenderSpec(DomainModel):
     inputs: tuple[RenderInput, ...] = Field(min_length=1)
     segments: tuple[RenderSegment, ...] = Field(min_length=1)
     subtitle_path: Path | None = None
+    narration_path: Path | None = None
     video_bitrate: str = "8M"
     audio_bitrate: str = "192k"
 
@@ -55,6 +56,9 @@ def build_render_commands(
     arguments = [str(spec.ffmpeg), "-hide_banner", "-nostdin", "-y"]
     for item in spec.inputs:
         arguments.extend(["-i", str(item.path)])
+    narration_index = len(spec.inputs)
+    if spec.narration_path is not None:
+        arguments.extend(["-i", str(spec.narration_path)])
 
     filters: list[str] = []
     concat_inputs: list[str] = []
@@ -96,10 +100,16 @@ def build_render_commands(
             )
         concat_inputs.append(f"[v{index}][a{index}]")
     video_label = "vbase" if spec.subtitle_path else "vout"
+    audio_label = "abase" if spec.narration_path is not None else "aout"
     filters.append(
         f"{''.join(concat_inputs)}concat=n={len(spec.segments)}:v=1:a=1"
-        f"[{video_label}][aout]"
+        f"[{video_label}][{audio_label}]"
     )
+    if spec.narration_path is not None:
+        duration = _seconds(sum(item.end_ms - item.start_ms for item in spec.segments))
+        filters.append(f"[abase]volume=0.25[abed]")
+        filters.append(f"[{narration_index}:a:0]aresample=48000,apad,atrim=duration={duration}[narr]")
+        filters.append("[abed][narr]amix=inputs=2:duration=first:dropout_transition=0[aout]")
     if spec.subtitle_path:
         escaped = escape_subtitle_filter_path(spec.subtitle_path)
         filters.append(f"[vbase]subtitles=filename='{escaped}'[vout]")

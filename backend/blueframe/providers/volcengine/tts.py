@@ -198,3 +198,17 @@ class CachedTtsProvider:
             duration_ms=int(manifest["duration_ms"]),
             usage=ProviderUsage(input_units=int(manifest["input_units"]), output_units=int(manifest["output_units"])),
         )
+
+
+class DynamicVolcengineTtsProvider:
+    def __init__(self, config_service: VolcengineTtsConfigService, credentials: CredentialStore, *, duration_probe: Callable[[Path], int]) -> None:
+        self.config_service, self.credentials = config_service, credentials
+        self.duration_probe = duration_probe
+
+    async def synthesize(self, request: TtsRequest) -> TtsResult:
+        config = self.config_service.load()
+        if config is None:
+            raise RuntimeError("Volcengine TTS is not configured")
+        return await VolcengineTtsProvider(
+            config, self.credentials, duration_probe=self.duration_probe,
+        ).synthesize(request)

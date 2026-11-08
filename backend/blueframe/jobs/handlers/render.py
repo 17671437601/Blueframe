@@ -8,6 +8,7 @@ from blueframe.jobs.models import Job
 from blueframe.projects.repository import ProjectRepository
 from blueframe.rendering.graph import RenderInput, RenderSegment, RenderSpec
 from blueframe.rendering.service import RenderService
+from blueframe.commentary.voice import load_timeline_manifest
 from blueframe.security.project_paths import resolve_within_root
 from blueframe.workers.protocol import JobResult, WorkerControl
 
@@ -42,6 +43,20 @@ class RenderProjectHandler:
         relative_output = PurePosixPath(project.output_relative_path) / f"{safe_title}-v{plan.version}.mp4"
         output = resolve_within_root(project.root_path, relative_output.as_posix())
         config = project.config.values
+        narration_path = subtitle_path = None
+        script_id = job.payload.get("script_id")
+        if script_id:
+            voice_root = resolve_within_root(
+                project.root_path,
+                (PurePosixPath(project.output_relative_path) / ".blueframe" / "voice" / str(script_id)).as_posix(),
+            )
+            timeline = load_timeline_manifest(voice_root / "timeline.json")
+            narration_path = timeline.narration_path.resolve()
+            if not narration_path.is_relative_to(project.root_path.resolve()):
+                raise ValueError("解说配音路径越出项目目录")
+            subtitle_path = voice_root / "captions.ass"
+            if not narration_path.is_file() or not subtitle_path.is_file():
+                raise ValueError("解说配音或字幕尚未生成")
         artifact = self.render.render(
             job_id=job.id, project_id=project_id, plan_id=plan_id,
             spec=RenderSpec(
@@ -54,6 +69,8 @@ class RenderProjectHandler:
                     source_id=segment.source_id, start_ms=segment.source_start_ms,
                     end_ms=segment.source_end_ms,
                 ) for segment in plan.segments),
+                narration_path=narration_path,
+                subtitle_path=subtitle_path,
             ),
             control=control,
         )

@@ -51,3 +51,17 @@ def test_subtitle_stage_is_added_after_concat() -> None:
     command, _ = build_render_commands(spec)
     graph = command[command.index("-filter_complex") + 1]
     assert "[vbase]subtitles=filename='C\\:/字幕/成片.srt'[vout]" in graph
+
+
+def test_narration_ducks_original_audio_and_mixes_after_concat(tmp_path: Path) -> None:
+    spec = RenderSpec(
+        ffmpeg=Path("ffmpeg"), output=tmp_path / "out.mp4", width=1080, height=1920, fps=30,
+        inputs=(RenderInput(source_id="s", path=tmp_path / "in.mp4", has_audio=True),),
+        segments=(RenderSegment(source_id="s", start_ms=0, end_ms=1000),),
+        narration_path=tmp_path / "解说.mp3",
+    )
+    command, _ = build_render_commands(spec)
+    graph = command[command.index("-filter_complex") + 1]
+    assert "volume=0.25[abed]" in graph
+    assert "amix=inputs=2" in graph
+    assert str(tmp_path / "解说.mp3") in command

@@ -114,16 +114,20 @@ def _run_backend(
     from blueframe.jobs.handlers.analysis import ProjectAnalysisHandler
     from blueframe.jobs.handlers.render import RenderProjectHandler
     from blueframe.jobs.handlers.commentary import ProjectCommentaryHandler
+    from blueframe.jobs.handlers.commentary_voice import CommentaryVoiceHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
     from blueframe.projects.repository import ProjectRepository
     from blueframe.providers.volcengine.config_service import ArkConfigService, DynamicArkAiProvider
-    from blueframe.providers.volcengine.tts import VolcengineTtsConfigService
+    from blueframe.providers.volcengine.tts import (
+        CachedTtsProvider, DynamicVolcengineTtsProvider, TtsCache, VolcengineTtsConfigService,
+    )
     from blueframe.drama.analysis_service import AnalysisService
     from blueframe.drama.repository import StoryAnalysisRepository
     from blueframe.commentary.repository import CommentaryRepository
     from blueframe.commentary.service import CommentaryService
+    from blueframe.commentary.voice import FfmpegAudioAssembler, VoiceTimelineService
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
@@ -169,6 +173,19 @@ def _run_backend(
             "generate_commentary": ProjectCommentaryHandler(
                 asr_repository,
                 CommentaryService(DynamicArkAiProvider(provider_config), commentary_repository),
+            ),
+            "synthesize_commentary": CommentaryVoiceHandler(
+                projects, commentary_repository,
+                VoiceTimelineService(
+                    CachedTtsProvider(
+                        DynamicVolcengineTtsProvider(
+                            tts_config, credentials,
+                            duration_probe=lambda path: probe_media(path, tools).duration_ms,
+                        ),
+                        TtsCache(data_dir / "tts-cache"), model="seed-tts-2.0", provider_version="v3",
+                    ),
+                    FfmpegAudioAssembler(tools.ffmpeg),
+                ),
             ),
             "render_edit_plan": RenderProjectHandler(
                 projects,

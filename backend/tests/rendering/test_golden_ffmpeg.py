@@ -28,11 +28,17 @@ def test_real_ffmpeg_renders_mixed_audio_golden_media(migrated_session_factory, 
         pytest.skip("bundled FFmpeg is unavailable")
     first = tmp_path / "有声.mp4"
     second = tmp_path / "静音.mp4"
+    narration = tmp_path / "解说.mp3"
     subprocess.run([
         str(tools.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
         "-f", "lavfi", "-i", "color=c=red:s=640x360:d=1",
         "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
         "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(first),
+    ], check=True)
+    subprocess.run([
+        str(tools.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "lavfi", "-i", "sine=frequency=880:duration=1.6",
+        "-c:a", "libmp3lame", str(narration),
     ], check=True)
     subprocess.run([
         str(tools.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
@@ -56,6 +62,7 @@ def test_real_ffmpeg_renders_mixed_audio_golden_media(migrated_session_factory, 
                 RenderSegment(source_id="one", start_ms=0, end_ms=800),
                 RenderSegment(source_id="two", start_ms=0, end_ms=800),
             ),
+            narration_path=narration,
         ), control=Control(),
     )
     info = probe_media(output, tools)
