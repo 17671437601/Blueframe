@@ -65,6 +65,7 @@ def upgrade() -> None:
         sa.Column("cache_key", sa.String(length=256), nullable=False, unique=True),
         sa.Column("model_version", sa.String(length=100), nullable=False),
         sa.Column("language", sa.String(length=32), nullable=False),
+        sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("duration_ms", sa.BigInteger(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
