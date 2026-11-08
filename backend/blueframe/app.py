@@ -11,6 +11,7 @@ from blueframe.db.engine import create_engine_and_session
 from blueframe.api.dependencies import session_dependency
 from blueframe.api.routes.account import build_account_router
 from blueframe.api.routes.jobs import build_jobs_router
+from blueframe.api.routes.projects import build_projects_router
 from blueframe.api.routes.system import build_system_router
 from blueframe.security.session_token import SessionTokenVerifier, generate_session_token
 
@@ -21,6 +22,9 @@ def create_app(
     session_token: str | None = None,
     job_repository=None,
     account_service=None,
+    project_repository=None,
+    project_path_registry=None,
+    media_probe=None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
@@ -53,6 +57,27 @@ def create_app(
     if job_repository is not None and account_service is not None:
         app.include_router(
             build_jobs_router(require_session, job_repository, account_service),
+            prefix="/api/v1",
+        )
+    if all(
+        dependency is not None
+        for dependency in (
+            project_repository,
+            project_path_registry,
+            media_probe,
+            job_repository,
+            account_service,
+        )
+    ):
+        app.include_router(
+            build_projects_router(
+                require_session,
+                project_repository,
+                project_path_registry,
+                media_probe,
+                job_repository,
+                account_service,
+            ),
             prefix="/api/v1",
         )
 

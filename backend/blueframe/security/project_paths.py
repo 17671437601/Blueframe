@@ -20,11 +20,21 @@ class ProjectPathRegistry:
         root = self._roots.get(root_id)
         if root is None:
             raise KeyError(root_id)
-        normalized = relative_path.replace("\\", "/")
-        candidate_input = Path(normalized)
-        if candidate_input.is_absolute() or ".." in PurePath(normalized).parts:
-            raise ValueError("path escapes registered project root")
-        candidate = (root / candidate_input).resolve(strict=False)
-        if not candidate.is_relative_to(root):
-            raise ValueError("path escapes registered project root")
-        return candidate
+        return resolve_within_root(root, relative_path)
+
+    def root(self, root_id: str) -> Path:
+        root = self._roots.get(root_id)
+        if root is None:
+            raise KeyError(root_id)
+        return root
+
+
+def resolve_within_root(root: Path, relative_path: str) -> Path:
+    normalized = relative_path.replace("\\", "/")
+    candidate_input = Path(normalized)
+    if candidate_input.is_absolute() or ".." in PurePath(normalized).parts:
+        raise ValueError("path escapes registered project root")
+    candidate = (root / candidate_input).resolve(strict=False)
+    if not candidate.is_relative_to(root):
+        raise ValueError("path escapes registered project root")
+    return candidate

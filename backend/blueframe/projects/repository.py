@@ -166,6 +166,34 @@ class ProjectRepository:
             ).mappings().all()
             return [_source(row) for row in rows]
 
+    def get_source(self, source_id: str) -> ProjectSource | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                text("SELECT * FROM project_sources WHERE id=:id"), {"id": source_id}
+            ).mappings().first()
+            return None if row is None else _source(row)
+
+    def update_media_info(self, source_id: str, media_info: dict) -> ProjectSource:
+        now = self._clock()
+        with self._session_factory.begin() as session:
+            result = session.execute(
+                text(
+                    "UPDATE project_sources SET media_info_json=:info, updated_at=:now "
+                    "WHERE id=:id"
+                ),
+                {
+                    "id": source_id,
+                    "info": json.dumps(media_info, ensure_ascii=False, sort_keys=True),
+                    "now": now.isoformat(),
+                },
+            )
+            if result.rowcount != 1:
+                raise KeyError(source_id)
+            row = session.execute(
+                text("SELECT * FROM project_sources WHERE id=:id"), {"id": source_id}
+            ).mappings().one()
+            return _source(row)
+
 
 def _project(row) -> Project:
     return Project(
