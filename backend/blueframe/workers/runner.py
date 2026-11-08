@@ -61,7 +61,9 @@ class WorkerRunner:
 
     def run_once(self) -> bool:
         job = self.repository.claim_next(
-            self.worker_id, lease_seconds=self.lease_seconds
+            self.worker_id,
+            lease_seconds=self.lease_seconds,
+            job_types=tuple(self.handlers),
         )
         if job is None:
             return False

@@ -37,7 +37,7 @@ def main() -> int:
         token = secrets.token_hex(32)
         port = find_free_port()
         supervisor = BackendSupervisor(repository_root, data_dir)
-        base_url = supervisor.start(port, token)
+        base_url = supervisor.start(port, token, secrets.token_hex(32))
         try:
             status, health = _request(f"{base_url}/health")
             assert status == 200 and health["database"] == "ok"
@@ -47,7 +47,13 @@ def main() -> int:
             except urllib.error.HTTPError as error:
                 assert error.code == 401
             _, account = _request(f"{base_url}/api/v1/account/access", token)
-            assert account["mode"] == "readonly"
+            assert account == {
+                "mode": "online",
+                "local_processing": True,
+                "remote_ai": False,
+                "export": True,
+                "grace_remaining_seconds": None,
+            }, account
             status, job = _request(
                 f"{base_url}/api/v1/jobs",
                 token,

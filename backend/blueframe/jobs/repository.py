@@ -59,19 +59,42 @@ class JobRepository:
             self._event(session, job_id, None, JobStatus.QUEUED, now)
             return self._get(session, job_id)
 
-    def claim_next(self, worker_id: str, *, lease_seconds: int) -> Job | None:
+    def claim_next(
+        self,
+        worker_id: str,
+        *,
+        lease_seconds: int,
+        job_types: tuple[str, ...] | None = None,
+    ) -> Job | None:
+        if job_types == ():
+            return None
         now = self._clock()
         expiry = now + timedelta(seconds=lease_seconds)
+        type_filter = ""
+        type_parameters: dict[str, str] = {}
+        if job_types is not None:
+            placeholders = []
+            for index, job_type in enumerate(job_types):
+                name = f"type_{index}"
+                placeholders.append(f":{name}")
+                type_parameters[name] = job_type
+            type_filter = f" AND job_type IN ({','.join(placeholders)})"
         with self._session_factory.begin() as session:
             row = session.execute(
                 text(
                     """UPDATE jobs SET status='running', lease_owner=:owner,
-                    lease_expires_at=:expiry, attempts=attempts+1, updated_at=:now
-                    WHERE id=(SELECT id FROM jobs WHERE status='queued'
-                              ORDER BY priority DESC, created_at ASC LIMIT 1)
-                      AND status='queued' RETURNING *"""
+                      lease_expires_at=:expiry, attempts=attempts+1, updated_at=:now
+                      WHERE id=(SELECT id FROM jobs WHERE status='queued'
+                                """ + type_filter + """
+                                ORDER BY priority DESC, created_at ASC LIMIT 1)
+                        AND status='queued' RETURNING *"""
                 ),
-                {"owner": worker_id, "expiry": expiry.isoformat(), "now": now.isoformat()},
+                {
+                    "owner": worker_id,
+                    "expiry": expiry.isoformat(),
+                    "now": now.isoformat(),
+                    **type_parameters,
+                },
             ).mappings().first()
             if row is None:
                 return None

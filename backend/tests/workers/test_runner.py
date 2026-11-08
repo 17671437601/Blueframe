@@ -90,3 +90,17 @@ def test_runner_cooperatively_cancels_and_sanitizes_failures(
     assert failed.status.value == "failed"
     assert "secret-value" not in failed.error_summary
     assert len(failed.error_summary) <= 500
+
+
+def test_runner_claims_only_job_types_it_can_handle(migrated_session_factory) -> None:
+    class Handler:
+        def run(self, job, checkpoint, control):
+            return importlib.import_module("blueframe.workers.protocol").JobResult()
+
+    repository, runner = _runtime(migrated_session_factory, Handler())
+    unknown = repository.create("future_handler", {}, "unknown", priority=100)
+    known = repository.create("render", {}, "known", priority=0)
+
+    assert runner.run_once() is True
+    assert repository.get(known.id).status.value == "completed"
+    assert repository.get(unknown.id).status.value == "queued"

@@ -27,7 +27,7 @@ def media_info() -> MediaInfo:
     )
 
 
-def build_client(session_factory, root: Path, *, mode="online"):
+def build_client(session_factory, root: Path, *, mode="online", bridge_secret=None):
     registry = ProjectPathRegistry()
     root_id = registry.register(root)
     app = create_app(
@@ -37,8 +37,31 @@ def build_client(session_factory, root: Path, *, mode="online"):
         project_repository=ProjectRepository(session_factory, clock=lambda: NOW),
         project_path_registry=registry,
         media_probe=lambda _path: media_info(),
+        bridge_secret=bridge_secret,
     )
     return TestClient(app), root_id
+
+
+def test_internal_bridge_registers_root_without_echoing_absolute_path(
+    migrated_session_factory, tmp_path: Path
+) -> None:
+    root = tmp_path / "受信目录"
+    root.mkdir()
+    client, _ = build_client(
+        migrated_session_factory, root, bridge_secret="bridge-secret"
+    )
+    with client:
+        assert client.post(
+            "/internal/project-roots", json={"root_path": str(root)}
+        ).status_code == 401
+        response = client.post(
+            "/internal/project-roots",
+            headers={"X-BlueFrame-Bridge": "bridge-secret"},
+            json={"root_path": str(root)},
+        )
+    assert response.status_code == 201
+    assert "root_id" in response.json()
+    assert str(root) not in response.text
 
 
 def test_project_routes_create_import_probe_list_and_queue_transcription(

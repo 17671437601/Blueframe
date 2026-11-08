@@ -21,8 +21,8 @@ class FakeBackend:
         self.started_with = None
         self.stopped = False
 
-    def start(self, port: int, token: str) -> str:
-        self.started_with = (port, token)
+    def start(self, port: int, token: str, bridge_secret: str) -> str:
+        self.started_with = (port, token, bridge_secret)
         return f"http://127.0.0.1:{port}"
 
     def stop(self) -> None:
@@ -42,6 +42,7 @@ def test_launcher_contract_uses_in_memory_bridge_and_cleans_up(tmp_path) -> None
         token_factory=lambda: "d" * 64,
         port_factory=lambda: 43127,
         screen_size=(1920, 1080),
+        bridge_secret_factory=lambda: "bridge-only-secret",
     )
 
     assert result == 0
@@ -57,3 +58,26 @@ def test_launcher_contract_uses_in_memory_bridge_and_cleans_up(tmp_path) -> None
         "apiBaseUrl": "http://127.0.0.1:43127",
         "sessionToken": "d" * 64,
     }
+    assert "bridge-only-secret" not in options["js_api"].get_bootstrap().values()
+
+
+def test_bridge_file_selection_returns_only_root_id_and_relative_paths(tmp_path) -> None:
+    from blueframe_desktop.launcher import BootstrapBridge
+
+    root = tmp_path / "中文 剧集"
+    root.mkdir()
+    first = root / "01.mp4"
+    second = root / "02.mp4"
+    first.touch(); second.touch()
+    bridge = BootstrapBridge(
+        "http://127.0.0.1:43127",
+        "d" * 64,
+        "bridge-secret",
+        file_dialog=lambda: [str(first), str(second)],
+        root_registrar=lambda _url, _secret, selected_root: "root-id" if selected_root == root else "wrong",
+    )
+
+    selection = bridge.select_media_files()
+
+    assert selection == {"rootId": "root-id", "files": ["01.mp4", "02.mp4"]}
+    assert str(root) not in str(selection)

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
+import hmac
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from blueframe.config import Settings
@@ -16,6 +19,10 @@ from blueframe.api.routes.system import build_system_router
 from blueframe.security.session_token import SessionTokenVerifier, generate_session_token
 
 
+class RegisterRootRequest(BaseModel):
+    root_path: str
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -25,6 +32,7 @@ def create_app(
     project_repository=None,
     project_path_registry=None,
     media_probe=None,
+    bridge_secret: str | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
@@ -59,6 +67,26 @@ def create_app(
             build_jobs_router(require_session, job_repository, account_service),
             prefix="/api/v1",
         )
+
+    if bridge_secret is not None and project_path_registry is not None:
+        @app.post(
+            "/internal/project-roots",
+            status_code=status.HTTP_201_CREATED,
+            include_in_schema=False,
+        )
+        def register_project_root(
+            request: RegisterRootRequest,
+            supplied_secret: str | None = Header(None, alias="X-BlueFrame-Bridge"),
+        ) -> dict[str, str]:
+            if supplied_secret is None or not hmac.compare_digest(
+                supplied_secret, bridge_secret
+            ):
+                raise HTTPException(401, detail="bridge authentication required")
+            try:
+                root_id = project_path_registry.register(Path(request.root_path))
+            except (OSError, ValueError):
+                raise HTTPException(400, detail="invalid project root")
+            return {"root_id": root_id}
     if all(
         dependency is not None
         for dependency in (

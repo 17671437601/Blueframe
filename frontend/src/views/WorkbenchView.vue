@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 const recentProjects = [
   { title: "都市悬疑 · 第 12 集", meta: "今天 10:24 · 16:9", progress: 72, accent: "#246bfd" },
   { title: "逆风翻盘 · 精华版", meta: "昨天 18:40 · 9:16", progress: 100, accent: "#7b61ff" },
@@ -14,7 +17,7 @@ const recentProjects = [
         <h2>把素材，变成下一条好故事。</h2>
         <p>从智能分析、剧情重组到成片交付，在一个安静、有序的工作流里完成。</p>
         <div class="hero-actions">
-          <button class="button button--primary" type="button"><span>＋</span> 新建创作项目</button>
+          <button class="button button--primary" type="button" @click="router.push('/drama')"><span>＋</span> 新建创作项目</button>
           <button class="button button--ghost" type="button">导入已有项目</button>
         </div>
       </div>

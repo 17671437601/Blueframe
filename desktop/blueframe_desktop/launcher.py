@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import secrets
+import json
+import os
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
@@ -14,19 +17,59 @@ class WindowRuntime(Protocol):
 
 
 class BackendRuntime(Protocol):
-    def start(self, port: int, token: str) -> str: ...
+    def start(self, port: int, token: str, bridge_secret: str) -> str: ...
     def stop(self) -> None: ...
+
+
+def _default_file_dialog() -> list[str]:
+    import webview
+
+    result = webview.windows[0].create_file_dialog(
+        webview.OPEN_DIALOG,
+        allow_multiple=True,
+        file_types=("视频文件 (*.mp4;*.mov;*.mkv;*.avi;*.m4v)", "所有文件 (*.*)"),
+    )
+    return [] if result is None else [str(path) for path in result]
+
+
+def _register_root(api_base_url: str, bridge_secret: str, root: Path) -> str:
+    body = json.dumps({"root_path": str(root)}).encode("utf-8")
+    request = urllib.request.Request(
+        f"{api_base_url}/internal/project-roots",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-BlueFrame-Bridge": bridge_secret,
+        },
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        return str(json.load(response)["root_id"])
 
 
 @dataclass(frozen=True)
 class BootstrapBridge:
     api_base_url: str
     session_token: str
+    bridge_secret: str
+    file_dialog: Callable[[], list[str]] = _default_file_dialog
+    root_registrar: Callable[[str, str, Path], str] = _register_root
 
     def get_bootstrap(self) -> dict[str, str]:
         return {
             "apiBaseUrl": self.api_base_url,
             "sessionToken": self.session_token,
+        }
+
+    def select_media_files(self) -> dict[str, object]:
+        selected = [Path(path).resolve() for path in self.file_dialog()]
+        if not selected:
+            return {"rootId": None, "files": []}
+        common = Path(os.path.commonpath([str(path) for path in selected]))
+        root = common.parent if len(selected) == 1 or common.is_file() else common
+        root_id = self.root_registrar(self.api_base_url, self.bridge_secret, root)
+        return {
+            "rootId": root_id,
+            "files": [path.relative_to(root).as_posix() for path in selected],
         }
 
 
@@ -36,21 +79,23 @@ def launch(
     backend: BackendRuntime,
     frontend_entry: Path,
     token_factory: Callable[[], str] = lambda: secrets.token_hex(32),
+    bridge_secret_factory: Callable[[], str] = lambda: secrets.token_hex(32),
     port_factory: Callable[[], int] = find_free_port,
     screen_size: tuple[int, int] | None = None,
 ) -> int:
     if not frontend_entry.is_file():
         raise RuntimeError("Frontend build is missing; run npm run build first")
     token = token_factory()
+    bridge_secret = bridge_secret_factory()
     port = port_factory()
     width = 1366 if screen_size is None else min(1366, screen_size[0])
     height = 768 if screen_size is None else min(768, screen_size[1])
     try:
-        api_base_url = backend.start(port, token)
+        api_base_url = backend.start(port, token, bridge_secret)
         runtime.create_window(
             title="蓝帧创作台",
             url=frontend_entry.resolve().as_uri(),
-            js_api=BootstrapBridge(api_base_url, token),
+            js_api=BootstrapBridge(api_base_url, token, bridge_secret),
             width=width,
             height=height,
             min_size=(1024, 700),

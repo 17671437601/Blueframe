@@ -62,11 +62,11 @@ class BackendSupervisor:
         self.data_dir = (data_dir or (self.repository_root / ".blueframe-data")).resolve()
         self.process: ManagedProcess | None = None
 
-    def start(self, port: int, token: str) -> str:
+    def start(self, port: int, token: str, bridge_secret: str) -> str:
         context = multiprocessing.get_context("spawn")
         self.process = context.Process(
             target=_run_backend,
-            args=(self.repository_root, self.data_dir, port, token),
+            args=(self.repository_root, self.data_dir, port, token, bridge_secret),
             name="blueframe-local-api",
         )
         self.process.start()
@@ -83,7 +83,13 @@ class BackendSupervisor:
         self.process = None
 
 
-def _run_backend(repository_root: Path, data_dir: Path, port: int, token: str) -> None:
+def _run_backend(
+    repository_root: Path,
+    data_dir: Path,
+    port: int,
+    token: str,
+    bridge_secret: str,
+) -> None:
     import os
     import sys
 
@@ -96,11 +102,21 @@ def _run_backend(repository_root: Path, data_dir: Path, port: int, token: str) -
     from alembic.config import Config
 
     from blueframe.app import create_app
-    from blueframe.auth.entitlement_cache import InMemoryEntitlementCache
-    from blueframe.auth.service import AccountService
+    from blueframe.auth.service import StandaloneAccountService
+    from blueframe.asr.funasr_engine import FunAsrEngine
+    from blueframe.asr.repository import AsrRepository
+    from blueframe.asr.service import AsrService
     from blueframe.config import Settings
     from blueframe.db.engine import create_engine_and_session
     from blueframe.jobs.repository import JobRepository
+    from blueframe.jobs.handlers.media import ProjectTranscriptionHandler
+    from blueframe.media.preview import extract_audio
+    from blueframe.media.probe import probe_media
+    from blueframe.media.tools import discover_executables
+    from blueframe.projects.repository import ProjectRepository
+    from blueframe.security.project_paths import ProjectPathRegistry
+    from blueframe.workers.runner import WorkerRunner
+    import threading
 
     alembic_config = Config(str(backend_root / "alembic.ini"))
     alembic_config.set_main_option("script_location", str(backend_root / "alembic"))
@@ -108,10 +124,42 @@ def _run_backend(repository_root: Path, data_dir: Path, port: int, token: str) -
 
     settings = Settings(data_dir=data_dir, api_port=port)
     _engine, session_factory = create_engine_and_session(settings)
+    jobs = JobRepository(session_factory)
+    projects = ProjectRepository(session_factory)
+    roots = ProjectPathRegistry()
+    tools = discover_executables(search_roots=[repository_root.parent, repository_root])
+    model_root = repository_root.parent / "model" / "hub" / "iic"
+    asr = AsrService(
+        AsrRepository(session_factory),
+        FunAsrEngine(
+            asr_model=model_root / "speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+            vad_model=model_root / "speech_fsmn_vad_zh-cn-16k-common-pytorch",
+            punctuation_model=model_root / "punc_ct-transformer_zh-cn-common-vocab272727-pytorch",
+        ),
+        audio_extractor=lambda source, output: extract_audio(tools, source, output),
+    )
+    worker = WorkerRunner(
+        jobs,
+        {"transcribe_project": ProjectTranscriptionHandler(projects, asr)},
+        worker_id=f"desktop-{os.getpid()}",
+        lease_seconds=settings.job_lease_seconds,
+    )
+    stop_worker = threading.Event()
+
+    def worker_loop() -> None:
+        while not stop_worker.is_set():
+            if not worker.run_once():
+                stop_worker.wait(0.25)
+
+    threading.Thread(target=worker_loop, name="blueframe-worker", daemon=True).start()
     app = create_app(
         settings,
         session_token=token,
-        job_repository=JobRepository(session_factory),
-        account_service=AccountService(InMemoryEntitlementCache()),
+        job_repository=jobs,
+        account_service=StandaloneAccountService(),
+        project_repository=projects,
+        project_path_registry=roots,
+        media_probe=lambda path: probe_media(path, tools),
+        bridge_secret=bridge_secret,
     )
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

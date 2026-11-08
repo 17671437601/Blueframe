@@ -46,3 +46,17 @@ class AccountService:
                 export=True, grace_remaining=self.GRACE - age,
             )
         return AccountAccess(mode="readonly", local_processing=False, remote_ai=False, export=True)
+
+
+class StandaloneAccountService:
+    """Local access used until the user's AuthProvider endpoint is configured."""
+
+    def evaluate_access(
+        self, now: datetime, provider_available: bool = False
+    ) -> AccountAccess:
+        return AccountAccess(
+            mode="online",
+            local_processing=True,
+            remote_ai=False,
+            export=True,
+        )

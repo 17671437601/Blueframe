@@ -28,3 +28,10 @@ for (const size of sizes) {
     }
   });
 }
+
+test("workbench primary action opens the drama creation wizard", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /新建创作项目/ }).click();
+  await expect(page.getByRole("heading", { name: "创建短剧项目" })).toBeVisible();
+  await expect(page.getByTestId("choose-media")).toBeVisible();
+});
