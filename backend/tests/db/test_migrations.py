@@ -31,7 +31,7 @@ def test_upgrade_head_is_repeatable_and_records_revision(
     finally:
         connection.close()
 
-    assert revisions == [("0005_render_artifacts",)]
+    assert revisions == [("0006_commentary_scripts",)]
     assert {
         "account_summary",
         "entitlement_snapshot",
@@ -42,4 +42,5 @@ def test_upgrade_head_is_repeatable_and_records_revision(
         "story_analysis_versions",
         "edit_plans",
         "render_artifacts",
+        "commentary_script_versions",
     } <= tables

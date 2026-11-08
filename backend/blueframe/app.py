@@ -14,6 +14,7 @@ from blueframe.db.engine import create_engine_and_session
 from blueframe.api.dependencies import session_dependency
 from blueframe.api.routes.account import build_account_router
 from blueframe.api.routes.analysis import build_analysis_router
+from blueframe.api.routes.commentary import build_commentary_router
 from blueframe.api.routes.edit_plans import build_edit_plan_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
@@ -39,6 +40,7 @@ def create_app(
     provider_config_service=None,
     tts_config_service=None,
     analysis_repository=None,
+    commentary_repository=None,
     edit_plan_repository=None,
     open_path=None,
 ) -> FastAPI:
@@ -177,6 +179,16 @@ def create_app(
                 edit_plan_repository,
             ),
             prefix="/api/v1",
+        )
+    if all(dependency is not None for dependency in (
+        project_repository, job_repository, account_service,
+        commentary_repository, provider_config_service,
+    )):
+        app.include_router(
+            build_commentary_router(
+                require_session, project_repository, job_repository,
+                commentary_repository, account_service, provider_config_service,
+            ), prefix="/api/v1",
         )
 
     return app
