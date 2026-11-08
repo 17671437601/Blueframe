@@ -31,7 +31,7 @@ def test_upgrade_head_is_repeatable_and_records_revision(
     finally:
         connection.close()
 
-    assert revisions == [("0002_projects_media_asr",)]
+    assert revisions == [("0003_story_analysis",)]
     assert {
         "account_summary",
         "entitlement_snapshot",
@@ -39,4 +39,5 @@ def test_upgrade_head_is_repeatable_and_records_revision(
         "project_sources",
         "asr_documents",
         "asr_lines",
+        "story_analysis_versions",
     } <= tables
