@@ -16,6 +16,7 @@ class RecordingRepository:
 
     def create(self, *, project_id: str, platform: LivePlatform, display_name: str, source_reference: str, authorization_confirmed: bool) -> RecordingSession:
         if not authorization_confirmed: raise ValueError("recording authorization confirmation is required")
+        platform = LivePlatform(platform)
         now, session_id = self._clock(), str(uuid4())
         with self._session_factory.begin() as session:
             active = int(session.execute(text("SELECT COUNT(*) FROM recording_sessions WHERE intent_active=1" )).scalar_one())
@@ -42,6 +43,14 @@ class RecordingRepository:
 
     def mark_recording(self, session_id: str, process_id: int | None = None) -> RecordingSession:
         self._update(session_id, status="recording", process_id=process_id)
+        return self.get(session_id)
+
+    def mark_reconnecting(self, session_id: str) -> RecordingSession:
+        with self._session_factory.begin() as session:
+            session.execute(text("""UPDATE recording_sessions SET status='reconnecting',process_id=NULL,
+                reconnect_count=reconnect_count+1,updated_at=:updated WHERE id=:id"""), {
+                "updated": self._clock().isoformat(), "id": session_id,
+            })
         return self.get(session_id)
 
     def stop_intent(self, session_id: str, *, status: str = "stopped") -> RecordingSession:

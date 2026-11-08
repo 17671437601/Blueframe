@@ -43,3 +43,10 @@ class AuthorizedUrlAdapter:
             platform=source.platform, title=source.display_name, playback_url=url,
             expires_at=self.clock() + self.maximum_age,
         )
+
+
+class DouyinAuthorizedAdapter(AuthorizedUrlAdapter):
+    """Douyin-labelled adapter; intentionally does not scrape pages or derive private URLs."""
+    async def resolve(self, source: StreamSource) -> ResolvedStream:
+        if source.platform != "douyin": raise ValueError("Douyin adapter received a different platform")
+        return await super().resolve(source)
