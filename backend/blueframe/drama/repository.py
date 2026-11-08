@@ -82,6 +82,14 @@ class StoryAnalysisRepository:
             ).mappings().all()
             return [self._model(row) for row in rows]
 
+    def get(self, analysis_id: str) -> StoryAnalysisVersion | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                text("SELECT * FROM story_analysis_versions WHERE id=:id"),
+                {"id": analysis_id},
+            ).mappings().first()
+            return None if row is None else self._model(row)
+
     def accept(self, *, project_id: str, version: int) -> StoryAnalysisVersion:
         existing = next(
             (item for item in self.list_for_project(project_id) if item.accepted), None

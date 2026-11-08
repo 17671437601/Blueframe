@@ -29,6 +29,19 @@ class AsrRepository:
             ).mappings().first()
             return None if row is None else self._document(session, row)
 
+    def list_for_project(self, project_id: str) -> list[AsrDocument]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                text(
+                    """SELECT documents.* FROM asr_documents documents
+                    JOIN project_sources sources ON sources.id=documents.source_id
+                    WHERE sources.project_id=:project
+                    ORDER BY sources.order_index"""
+                ),
+                {"project": project_id},
+            ).mappings().all()
+            return [self._document(session, row) for row in rows]
+
     def save(
         self,
         *,
