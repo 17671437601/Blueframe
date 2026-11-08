@@ -10,6 +10,23 @@ export interface JobSummary {
   job_type: string;
   status: string;
   progress: number;
+  payload?: Record<string, unknown>;
+  error_summary?: string | null;
+}
+
+export interface StoryAnalysisVersion {
+  id: string;
+  project_id?: string;
+  version: number;
+  accepted: boolean;
+  analysis: {
+    episode_summary: string;
+    characters: Array<{ name: string; role: string; description: string }>;
+    conflicts: Array<{ start_ms: number; end_ms: number; summary: string }>;
+    explosions: Array<{ start_ms: number; end_ms: number; title: string; reason: string; score: number }>;
+    edit_candidates: Array<{ title: string; rationale: string; segments: Array<[number, number]> }>;
+    media_duration_ms: number;
+  };
 }
 
 export interface ProjectSummary {
@@ -45,6 +62,9 @@ export interface ApiClient {
   transcribeProject(projectId: string): Promise<JobSummary>;
   getVolcengineConfig(): Promise<VolcengineConfigStatus>;
   saveVolcengineConfig(payload: { model: string; api_key?: string }): Promise<VolcengineConfigStatus>;
+  listAnalyses(projectId: string): Promise<StoryAnalysisVersion[]>;
+  startAnalysis(projectId: string, idempotencyKey: string): Promise<JobSummary>;
+  acceptAnalysis(projectId: string, version: number): Promise<StoryAnalysisVersion>;
 }
 
 export function createApiClient(
@@ -88,5 +108,13 @@ export function createApiClient(
     saveVolcengineConfig: (payload) => request("/api/v1/providers/volcengine", {
       method: "PUT", body: JSON.stringify(payload),
     }),
+    listAnalyses: (projectId) => request(`/api/v1/projects/${projectId}/analyses`),
+    startAnalysis: (projectId, idempotencyKey) =>
+      request(`/api/v1/projects/${projectId}/analyze`, {
+        method: "POST",
+        body: JSON.stringify({ consent_to_send_transcript: true, idempotency_key: idempotencyKey }),
+      }),
+    acceptAnalysis: (projectId, version) =>
+      request(`/api/v1/projects/${projectId}/analyses/${version}/accept`, { method: "POST" }),
   };
 }

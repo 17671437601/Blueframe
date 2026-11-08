@@ -57,6 +57,6 @@ class StandaloneAccountService:
         return AccountAccess(
             mode="online",
             local_processing=True,
-            remote_ai=False,
+            remote_ai=provider_available,
             export=True,
         )

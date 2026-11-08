@@ -26,6 +26,7 @@ const bannerKind = computed(() => {
   return "none";
 });
 const icons = ["⌂", "◆", "▶", "◇", "◉", "▦", "≋", "⚙"];
+const navigationRoutes = routeDefinitions.filter((item) => item.meta.navigation !== false);
 </script>
 
 <template>
@@ -38,7 +39,7 @@ const icons = ["⌂", "◆", "▶", "◇", "◉", "▦", "≋", "⚙"];
       </div>
       <nav>
         <RouterLink
-          v-for="(item, index) in routeDefinitions"
+          v-for="(item, index) in navigationRoutes"
           :key="item.path"
           :to="item.path"
           :aria-current="route.path === item.path ? 'page' : undefined"

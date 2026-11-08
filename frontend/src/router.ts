@@ -4,10 +4,12 @@ import PlaceholderView from "./views/PlaceholderView.vue";
 import WorkbenchView from "./views/WorkbenchView.vue";
 import DramaView from "./views/DramaView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import AnalysisView from "./views/AnalysisView.vue";
 
 export const routeDefinitions = [
   { path: "/", name: "workbench", component: WorkbenchView, meta: { title: "工作台", eyebrow: "总览" } },
   { path: "/drama", name: "drama", component: DramaView, meta: { title: "短剧", fullTitle: "短剧生产", eyebrow: "创作流程" } },
+  { path: "/drama/:projectId", name: "drama-analysis", component: AnalysisView, props: true, meta: { title: "短剧", fullTitle: "剧情分析", eyebrow: "智能审阅", navigation: false } },
   { path: "/movie", name: "movie", component: PlaceholderView, meta: { title: "电影", fullTitle: "电影解说", eyebrow: "智能解说" } },
   { path: "/variants", name: "variants", component: PlaceholderView, meta: { title: "变体", fullTitle: "视频变体", eyebrow: "批量生成" } },
   { path: "/live", name: "live", component: PlaceholderView, meta: { title: "直播", fullTitle: "直播切片", eyebrow: "实时处理" } },

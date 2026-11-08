@@ -13,6 +13,7 @@ from blueframe.config import Settings
 from blueframe.db.engine import create_engine_and_session
 from blueframe.api.dependencies import session_dependency
 from blueframe.api.routes.account import build_account_router
+from blueframe.api.routes.analysis import build_analysis_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
 from blueframe.api.routes.providers import build_provider_router
@@ -35,6 +36,7 @@ def create_app(
     media_probe=None,
     bridge_secret: str | None = None,
     provider_config_service=None,
+    analysis_repository=None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
@@ -112,6 +114,27 @@ def create_app(
                 media_probe,
                 job_repository,
                 account_service,
+            ),
+            prefix="/api/v1",
+        )
+    if all(
+        dependency is not None
+        for dependency in (
+            project_repository,
+            job_repository,
+            analysis_repository,
+            account_service,
+            provider_config_service,
+        )
+    ):
+        app.include_router(
+            build_analysis_router(
+                require_session,
+                project_repository,
+                job_repository,
+                analysis_repository,
+                account_service,
+                provider_config_service,
             ),
             prefix="/api/v1",
         )

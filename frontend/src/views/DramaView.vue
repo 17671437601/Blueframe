@@ -14,6 +14,7 @@ const highlightCount = ref(10);
 const remixCount = ref(10);
 const commentaryCount = ref(0);
 const message = ref("");
+const currentProjectId = ref("");
 
 const steps = ["导入素材", "智能分析", "生产配置", "确认启动"];
 const canContinue = computed(() => step.value > 0 || (name.value.trim() && files.value.length > 0));
@@ -46,6 +47,7 @@ async function startProject() {
     },
   });
   message.value = `项目已创建：${project.name}，正在进行本地识别`;
+  currentProjectId.value = project.id;
 }
 </script>
 
@@ -101,6 +103,7 @@ async function startProject() {
       <button v-else class="button button--primary" data-testid="start-project" type="button" :disabled="projects.busy" @click="startProject">{{ projects.busy ? "正在创建…" : "确认并启动" }}</button>
     </footer>
     <p v-if="message" class="workflow-message" role="status">{{ message }}</p>
+    <a v-if="currentProjectId" class="button button--light analysis-link" :href="`#/drama/${currentProjectId}`">打开剧情分析工作台</a>
     <p v-if="projects.error" class="workflow-error" role="alert">{{ projects.error }}</p>
   </section>
 </template>

@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import re
 
-from jsonschema import ValidationError, validate
-
 from blueframe.domain.common import ProviderUsage
 from blueframe.providers.ai import AiRequest, AiResult
 from blueframe.providers.volcengine.config import ArkProviderConfig
@@ -44,7 +42,11 @@ class ArkAiProvider:
         response = await self.transport.post_responses(payload)
         output = _extract_output(response)
         try:
+            from jsonschema import ValidationError, validate
+
             validate(instance=output, schema=request.output_schema)
+        except ModuleNotFoundError as error:
+            raise ArkResponseError("JSON Schema validation runtime is unavailable") from error
         except ValidationError as error:
             raise ArkResponseError("Volcengine output does not match the requested schema") from error
         usage = response.get("usage") or {}

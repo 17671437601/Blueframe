@@ -111,11 +111,14 @@ def _run_backend(
     from blueframe.db.engine import create_engine_and_session
     from blueframe.jobs.repository import JobRepository
     from blueframe.jobs.handlers.media import ProjectTranscriptionHandler
+    from blueframe.jobs.handlers.analysis import ProjectAnalysisHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
     from blueframe.projects.repository import ProjectRepository
-    from blueframe.providers.volcengine.config_service import ArkConfigService
+    from blueframe.providers.volcengine.config_service import ArkConfigService, DynamicArkAiProvider
+    from blueframe.drama.analysis_service import AnalysisService
+    from blueframe.drama.repository import StoryAnalysisRepository
     from blueframe.security.project_paths import ProjectPathRegistry
     from blueframe.workers.runner import WorkerRunner
     import threading
@@ -134,8 +137,10 @@ def _run_backend(
     )
     tools = discover_executables(search_roots=[repository_root.parent, repository_root])
     model_root = repository_root.parent / "model" / "hub" / "iic"
+    asr_repository = AsrRepository(session_factory)
+    analysis_repository = StoryAnalysisRepository(session_factory)
     asr = AsrService(
-        AsrRepository(session_factory),
+        asr_repository,
         FunAsrEngine(
             asr_model=model_root / "speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
             vad_model=model_root / "speech_fsmn_vad_zh-cn-16k-common-pytorch",
@@ -145,7 +150,13 @@ def _run_backend(
     )
     worker = WorkerRunner(
         jobs,
-        {"transcribe_project": ProjectTranscriptionHandler(projects, asr)},
+        {
+            "transcribe_project": ProjectTranscriptionHandler(projects, asr),
+            "analyze_project": ProjectAnalysisHandler(
+                asr_repository,
+                AnalysisService(DynamicArkAiProvider(provider_config), analysis_repository),
+            ),
+        },
         worker_id=f"desktop-{os.getpid()}",
         lease_seconds=settings.job_lease_seconds,
     )
@@ -167,5 +178,6 @@ def _run_backend(
         media_probe=lambda path: probe_media(path, tools),
         bridge_secret=bridge_secret,
         provider_config_service=provider_config,
+        analysis_repository=analysis_repository,
     )
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict
 
 from blueframe.auth.credential_store import CredentialStore
 from blueframe.providers.volcengine.config import ArkProviderConfig
+from blueframe.providers.volcengine.ark_ai import ArkAiProvider
+from blueframe.providers.volcengine.transport import ArkTransport
 
 
 class ArkConfigStatus(BaseModel):
@@ -50,3 +52,17 @@ class ArkConfigService:
         temporary.write_text(config.model_dump_json(indent=2), encoding="utf-8")
         temporary.replace(self.path)
         return self.status()
+
+
+class DynamicArkAiProvider:
+    """Loads the latest saved Ark configuration for each billed request."""
+
+    def __init__(self, service: ArkConfigService) -> None:
+        self.service = service
+
+    async def execute(self, request):
+        config = self.service.load()
+        if config is None:
+            raise RuntimeError("Volcengine provider is not configured")
+        transport = ArkTransport(config, self.service.credential_store)
+        return await ArkAiProvider(config, transport).execute(request)
