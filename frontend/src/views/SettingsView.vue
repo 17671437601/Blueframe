@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { useProviderSettingsStore } from "../stores/providerSettings";
+import TtsSettingsPanel from "../components/TtsSettingsPanel.vue";
 
 const props = withDefaults(defineProps<{
   configured?: boolean;
@@ -47,5 +48,6 @@ async function submit() {
       <p v-if="error" class="workflow-error">{{ error }}</p><p v-if="saved" class="workflow-message">配置已安全保存</p>
       <div class="wizard-actions"><button class="button button--primary" :disabled="isBusy">{{ isBusy ? "保存中…" : "保存配置" }}</button></div>
     </form>
+    <TtsSettingsPanel />
   </section>
 </template>

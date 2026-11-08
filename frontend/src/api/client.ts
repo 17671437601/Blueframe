@@ -69,6 +69,11 @@ export interface VolcengineConfigStatus {
   model: string | null;
 }
 
+export interface VolcengineTtsStatus {
+  configured: boolean;
+  default_voice: string | null;
+}
+
 export interface ApiClient {
   request<T>(path: string, init?: RequestInit): Promise<T>;
   systemStatus(): Promise<{ status: string }>;
@@ -80,6 +85,8 @@ export interface ApiClient {
   transcribeProject(projectId: string): Promise<JobSummary>;
   getVolcengineConfig(): Promise<VolcengineConfigStatus>;
   saveVolcengineConfig(payload: { model: string; api_key?: string }): Promise<VolcengineConfigStatus>;
+  getVolcengineTtsConfig(): Promise<VolcengineTtsStatus>;
+  saveVolcengineTtsConfig(payload: { default_voice: string; api_key?: string }): Promise<VolcengineTtsStatus>;
   listAnalyses(projectId: string): Promise<StoryAnalysisVersion[]>;
   startAnalysis(projectId: string, idempotencyKey: string): Promise<JobSummary>;
   acceptAnalysis(projectId: string, version: number): Promise<StoryAnalysisVersion>;
@@ -128,6 +135,10 @@ export function createApiClient(
       request(`/api/v1/projects/${projectId}/transcribe`, { method: "POST" }),
     getVolcengineConfig: () => request("/api/v1/providers/volcengine"),
     saveVolcengineConfig: (payload) => request("/api/v1/providers/volcengine", {
+      method: "PUT", body: JSON.stringify(payload),
+    }),
+    getVolcengineTtsConfig: () => request("/api/v1/providers/volcengine-tts"),
+    saveVolcengineTtsConfig: (payload) => request("/api/v1/providers/volcengine-tts", {
       method: "PUT", body: JSON.stringify(payload),
     }),
     listAnalyses: (projectId) => request(`/api/v1/projects/${projectId}/analyses`),

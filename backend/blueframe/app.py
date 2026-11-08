@@ -37,6 +37,7 @@ def create_app(
     media_probe=None,
     bridge_secret: str | None = None,
     provider_config_service=None,
+    tts_config_service=None,
     analysis_repository=None,
     edit_plan_repository=None,
     open_path=None,
@@ -65,9 +66,9 @@ def create_app(
     verifier = SessionTokenVerifier(session_token or generate_session_token())
     require_session = session_dependency(verifier)
     app.include_router(build_system_router(require_session), prefix="/api/v1")
-    if provider_config_service is not None:
+    if provider_config_service is not None or tts_config_service is not None:
         app.include_router(
-            build_provider_router(require_session, provider_config_service),
+            build_provider_router(require_session, provider_config_service, tts_config_service),
             prefix="/api/v1",
         )
     if account_service is not None:

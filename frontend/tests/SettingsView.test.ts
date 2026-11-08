@@ -7,6 +7,7 @@ describe("SettingsView", () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const wrapper = mount(SettingsView, {
       props: { configured: false, model: "", busy: false, save },
+      global: { stubs: { TtsSettingsPanel: true } },
     });
     await wrapper.get('[name="model"]').setValue("ep-test");
     await wrapper.get('[name="apiKey"]').setValue("secret");

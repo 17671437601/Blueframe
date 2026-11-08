@@ -13,6 +13,7 @@ class TtsRequest(DomainModel):
     voice: str = Field(min_length=1)
     output_root: Path
     filename: str = Field(min_length=1)
+    speech_rate: int = Field(default=0, ge=-50, le=100)
 
 
 class TtsResult(DomainModel):

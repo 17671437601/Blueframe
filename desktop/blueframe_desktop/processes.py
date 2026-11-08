@@ -118,6 +118,7 @@ def _run_backend(
     from blueframe.media.tools import discover_executables
     from blueframe.projects.repository import ProjectRepository
     from blueframe.providers.volcengine.config_service import ArkConfigService, DynamicArkAiProvider
+    from blueframe.providers.volcengine.tts import VolcengineTtsConfigService
     from blueframe.drama.analysis_service import AnalysisService
     from blueframe.drama.repository import StoryAnalysisRepository
     from blueframe.editing.repository import EditPlanRepository
@@ -136,9 +137,9 @@ def _run_backend(
     jobs = JobRepository(session_factory)
     projects = ProjectRepository(session_factory)
     roots = ProjectPathRegistry()
-    provider_config = ArkConfigService(
-        data_dir / "providers.json", WindowsCredentialStore()
-    )
+    credentials = WindowsCredentialStore()
+    provider_config = ArkConfigService(data_dir / "providers.json", credentials)
+    tts_config = VolcengineTtsConfigService(data_dir / "tts-provider.json", credentials)
     tools = discover_executables(search_roots=[repository_root.parent, repository_root])
     model_root = repository_root.parent / "model" / "hub" / "iic"
     asr_repository = AsrRepository(session_factory)
@@ -193,6 +194,7 @@ def _run_backend(
         media_probe=lambda path: probe_media(path, tools),
         bridge_secret=bridge_secret,
         provider_config_service=provider_config,
+        tts_config_service=tts_config,
         analysis_repository=analysis_repository,
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
