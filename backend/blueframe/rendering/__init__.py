@@ -1,0 +1,1 @@
+"""Structured FFmpeg rendering primitives."""
