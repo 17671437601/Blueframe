@@ -116,6 +116,7 @@ def _run_backend(
     from blueframe.jobs.handlers.commentary import ProjectCommentaryHandler
     from blueframe.jobs.handlers.commentary_voice import CommentaryVoiceHandler
     from blueframe.jobs.handlers.variants import VariantBatchHandler
+    from blueframe.jobs.handlers.live import LiveSegmentProcessingHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
     from blueframe.media.tools import discover_executables
@@ -130,6 +131,10 @@ def _run_backend(
     from blueframe.commentary.service import CommentaryService
     from blueframe.commentary.voice import FfmpegAudioAssembler, VoiceTimelineService
     from blueframe.variants.repository import VariantBatchRepository
+    from blueframe.live.repository import RecordingRepository
+    from blueframe.live.platform import DouyinAuthorizedAdapter
+    from blueframe.live.recorder import RecordingEngine, SubprocessRecorderLauncher
+    from blueframe.live.coordinator import StableSegmentCoordinator
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
@@ -160,6 +165,13 @@ def _run_backend(
     edit_plans = EditPlanRepository(session_factory)
     asset_repository = AssetRepository(session_factory)
     variant_batches = VariantBatchRepository(session_factory)
+    recordings = RecordingRepository(session_factory, concurrency_limit=2)
+    live_engine = RecordingEngine(
+        recordings, DouyinAuthorizedAdapter(credentials), SubprocessRecorderLauncher(), tools.ffmpeg,
+    )
+    live_coordinator = StableSegmentCoordinator(
+        recordings, projects, jobs, media_probe=lambda path: probe_media(path, tools),
+    )
     def validate_asset(path, asset_type):
         if asset_type is AssetType.VIDEO:
             return probe_media(path, tools).model_dump(mode="json")
@@ -185,13 +197,14 @@ def _run_backend(
         ),
         audio_extractor=lambda source, output: extract_audio(tools, source, output),
     )
+    analysis_service = AnalysisService(DynamicArkAiProvider(provider_config), analysis_repository)
     worker = WorkerRunner(
         jobs,
         {
             "transcribe_project": ProjectTranscriptionHandler(projects, asr),
             "analyze_project": ProjectAnalysisHandler(
                 asr_repository,
-                AnalysisService(DynamicArkAiProvider(provider_config), analysis_repository),
+                analysis_service,
             ),
             "generate_commentary": ProjectCommentaryHandler(
                 asr_repository,
@@ -214,6 +227,9 @@ def _run_backend(
                 projects, variant_batches, FfmpegExecutor(), tools.ffmpeg,
                 probe=lambda path: probe_media(path, tools), assets=asset_repository,
             ),
+            "process_live_segment": LiveSegmentProcessingHandler(
+                projects, asr, analysis_service, edit_plans, jobs, recordings,
+            ),
             "render_edit_plan": RenderProjectHandler(
                 projects,
                 edit_plans,
@@ -230,12 +246,35 @@ def _run_backend(
     )
     stop_worker = threading.Event()
 
+    for recovered in recordings.recover_intents():
+        project = projects.get(recovered.project_id)
+        if project is None: continue
+        live_root = project.root_path / project.output_relative_path / "live" / recovered.id
+        try: live_engine.start(recovered.id, live_root)
+        except Exception as error: recordings.mark_error(recovered.id, str(error))
+
     def worker_loop() -> None:
         while not stop_worker.is_set():
             if not worker.run_once():
                 stop_worker.wait(0.25)
 
+    def live_loop() -> None:
+        while not stop_worker.is_set():
+            for session in recordings.list():
+                if not session.intent_active: continue
+                project = projects.get(session.project_id)
+                if project is None: continue
+                live_root = project.root_path / project.output_relative_path / "live" / session.id
+                try:
+                    if session.id in live_engine.processes: live_engine.poll_and_reconnect(session.id)
+                    else: live_engine.start(session.id, live_root)
+                    live_coordinator.scan(session.id, live_root)
+                except Exception as error:
+                    recordings.mark_error(session.id, str(error))
+            stop_worker.wait(2)
+
     threading.Thread(target=worker_loop, name="blueframe-worker", daemon=True).start()
+    threading.Thread(target=live_loop, name="blueframe-live", daemon=True).start()
     app = create_app(
         settings,
         session_token=token,

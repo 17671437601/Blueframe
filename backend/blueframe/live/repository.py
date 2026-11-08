@@ -53,6 +53,13 @@ class RecordingRepository:
             })
         return self.get(session_id)
 
+    def mark_error(self, session_id: str, summary: str) -> RecordingSession:
+        with self._session_factory.begin() as session:
+            session.execute(text("UPDATE recording_sessions SET status='interrupted',process_id=NULL,error_summary=:error,updated_at=:updated WHERE id=:id"), {
+                "error": summary[:500], "updated": self._clock().isoformat(), "id": session_id,
+            })
+        return self.get(session_id)
+
     def stop_intent(self, session_id: str, *, status: str = "stopped") -> RecordingSession:
         with self._session_factory.begin() as session:
             session.execute(text("UPDATE recording_sessions SET intent_active=0,status=:status,process_id=NULL,updated_at=:updated WHERE id=:id"), {
@@ -88,6 +95,11 @@ class RecordingRepository:
         with self._session_factory() as session:
             rows = session.execute(text("SELECT * FROM recording_segments WHERE session_id=:session ORDER BY sequence"), {"session": session_id}).mappings().all()
         return [self._segment(row) for row in rows]
+
+    def find_segment_by_fingerprint(self, fingerprint: str) -> RecordingSegment | None:
+        with self._session_factory() as session:
+            row = session.execute(text("SELECT * FROM recording_segments WHERE fingerprint=:fingerprint ORDER BY created_at LIMIT 1"), {"fingerprint": fingerprint}).mappings().first()
+        return None if row is None else self._segment(row)
 
     def update_segment(self, segment_id: str, *, status: str, size_bytes: int, duration_ms: int, fingerprint: str | None = None) -> RecordingSegment:
         with self._session_factory.begin() as session:
