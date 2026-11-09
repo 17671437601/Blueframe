@@ -13,6 +13,7 @@ import { configureMovieStore } from "./stores/movie";
 import { configureAssetStore } from "./stores/assets";
 import { configureVariantStore } from "./stores/variants";
 import { configureLiveStore } from "./stores/live";
+import { configureLegacyImportStore } from "./stores/legacyImport";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
@@ -38,6 +39,7 @@ configureMovieStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken
 configureAssetStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureVariantStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureLiveStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureLegacyImportStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");
 void system.refresh();

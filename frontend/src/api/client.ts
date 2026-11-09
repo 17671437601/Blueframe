@@ -124,6 +124,21 @@ export interface RecordingSessionSummary {
   segments: Array<{ id: string; sequence: number; status: string; filename: string; duration_ms: number; size_bytes: number }>;
 }
 
+export interface LegacyPreviewReport {
+  source_hash: string;
+  migration_version: string;
+  projects: Array<{ legacy_table: string; legacy_id: string; name: string; project_type: string; source_available: boolean; duration_ms: number }>;
+  excluded_tables: string[];
+  warnings: string[];
+}
+
+export interface LegacyImportResult {
+  source_hash: string;
+  imported: number;
+  skipped: number;
+  project_ids: string[];
+}
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -176,6 +191,8 @@ export interface ApiClient {
   startRecording(projectId: string, payload: { platform: "douyin" | "authorized_url"; display_name: string; playback_url: string; authorization_confirmed: boolean }): Promise<RecordingSessionSummary>;
   stopRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
   reconnectRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
+  previewLegacyImport(payload: { root_id: string; relative_path: string }): Promise<LegacyPreviewReport>;
+  confirmLegacyImport(payload: { root_id: string; relative_path: string; expected_source_hash: string; confirmed: true }): Promise<LegacyImportResult>;
 }
 
 export function createApiClient(
@@ -259,5 +276,7 @@ export function createApiClient(
     startRecording: (projectId, payload) => request(`/api/v1/projects/${projectId}/recordings`, { method: "POST", body: JSON.stringify(payload) }),
     stopRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/stop`, { method: "POST" }),
     reconnectRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/reconnect`, { method: "POST" }),
+    previewLegacyImport: (payload) => request("/api/v1/legacy-import/preview", { method: "POST", body: JSON.stringify(payload) }),
+    confirmLegacyImport: (payload) => request("/api/v1/legacy-import/confirm", { method: "POST", body: JSON.stringify(payload) }),
   };
 }

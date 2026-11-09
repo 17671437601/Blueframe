@@ -18,6 +18,7 @@ from blueframe.api.routes.commentary import build_commentary_router
 from blueframe.api.routes.assets import build_assets_router
 from blueframe.api.routes.variants import build_variants_router
 from blueframe.api.routes.live import build_live_router
+from blueframe.api.routes.legacy import build_legacy_router
 from blueframe.api.routes.edit_plans import build_edit_plan_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
@@ -50,6 +51,7 @@ def create_app(
     recording_repository=None,
     live_credentials=None,
     live_engine=None,
+    legacy_importer=None,
     edit_plan_repository=None,
     open_path=None,
 ) -> FastAPI:
@@ -77,6 +79,8 @@ def create_app(
     verifier = SessionTokenVerifier(session_token or generate_session_token())
     require_session = session_dependency(verifier)
     app.include_router(build_system_router(require_session), prefix="/api/v1")
+    if project_path_registry is not None and legacy_importer is not None:
+        app.include_router(build_legacy_router(require_session, project_path_registry, legacy_importer), prefix="/api/v1")
     if project_path_registry is not None and asset_repository is not None and asset_scanner is not None:
         app.include_router(
             build_assets_router(require_session, project_path_registry, asset_repository, asset_scanner),

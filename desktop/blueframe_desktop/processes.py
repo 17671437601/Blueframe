@@ -135,6 +135,7 @@ def _run_backend(
     from blueframe.live.platform import DouyinAuthorizedAdapter
     from blueframe.live.recorder import RecordingEngine, SubprocessRecorderLauncher
     from blueframe.live.coordinator import StableSegmentCoordinator
+    from blueframe.legacy.importer import LegacyImporter
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
@@ -172,6 +173,7 @@ def _run_backend(
     live_coordinator = StableSegmentCoordinator(
         recordings, projects, jobs, media_probe=lambda path: probe_media(path, tools),
     )
+    legacy_importer = LegacyImporter(session_factory, media_probe=lambda path: probe_media(path, tools))
     def validate_asset(path, asset_type):
         if asset_type is AssetType.VIDEO:
             return probe_media(path, tools).model_dump(mode="json")
@@ -294,6 +296,7 @@ def _run_backend(
         recording_repository=recordings,
         live_credentials=credentials,
         live_engine=live_engine,
+        legacy_importer=legacy_importer,
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
     )

@@ -103,3 +103,18 @@ def test_bridge_directory_selection_returns_only_registered_root_id(tmp_path) ->
         root_registrar=lambda _url, _secret, root: "live-root" if root == tmp_path.resolve() else "wrong",
     )
     assert bridge.select_project_directory() == {"rootId": "live-root"}
+
+
+def test_bridge_legacy_database_selection_returns_relative_database_path(tmp_path) -> None:
+    from blueframe_desktop.launcher import BootstrapBridge
+
+    database = tmp_path / "旧版数据" / "video.db"
+    database.parent.mkdir()
+    database.touch()
+    bridge = BootstrapBridge(
+        "http://127.0.0.1:43127", "d" * 64, "bridge-secret",
+        legacy_dialog=lambda: str(database),
+        root_registrar=lambda _url, _secret, root: "legacy-root" if root == database.parent.resolve() else "wrong",
+    )
+
+    assert bridge.select_legacy_database() == {"rootId": "legacy-root", "file": "video.db"}

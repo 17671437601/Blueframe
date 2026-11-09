@@ -39,6 +39,16 @@ def _default_folder_dialog() -> str | None:
     return str(result[0] if isinstance(result, (list, tuple)) else result)
 
 
+def _default_legacy_dialog() -> str | None:
+    import webview
+    result = webview.windows[0].create_file_dialog(
+        webview.OPEN_DIALOG, allow_multiple=False,
+        file_types=("旧版数据库 (video.db;*.db)", "SQLite 数据库 (*.db)", "所有文件 (*.*)"),
+    )
+    if not result: return None
+    return str(result[0] if isinstance(result, (list, tuple)) else result)
+
+
 def _register_root(api_base_url: str, bridge_secret: str, root: Path) -> str:
     body = json.dumps({"root_path": str(root)}).encode("utf-8")
     request = urllib.request.Request(
@@ -71,6 +81,7 @@ class BootstrapBridge:
     bridge_secret: str
     file_dialog: Callable[[], list[str]] = _default_file_dialog
     folder_dialog: Callable[[], str | None] = _default_folder_dialog
+    legacy_dialog: Callable[[], str | None] = _default_legacy_dialog
     root_registrar: Callable[[str, str, Path], str] = _register_root
     output_opener: Callable[[str, str, str], dict[str, bool]] = _open_project_output
 
@@ -98,6 +109,13 @@ class BootstrapBridge:
         root = Path(selected).resolve()
         root_id = self.root_registrar(self.api_base_url, self.bridge_secret, root)
         return {"rootId": root_id}
+
+    def select_legacy_database(self) -> dict[str, str | None]:
+        selected = self.legacy_dialog()
+        if not selected: return {"rootId": None, "file": None}
+        database = Path(selected).resolve()
+        root_id = self.root_registrar(self.api_base_url, self.bridge_secret, database.parent)
+        return {"rootId": root_id, "file": database.name}
 
     def open_project_output(self, project_id: str) -> dict[str, bool]:
         return self.output_opener(self.api_base_url, self.bridge_secret, project_id)

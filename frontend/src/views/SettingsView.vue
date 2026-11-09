@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 
 import { useProviderSettingsStore } from "../stores/providerSettings";
 import TtsSettingsPanel from "../components/TtsSettingsPanel.vue";
+import LegacyImportPanel from "../components/LegacyImportPanel.vue";
 
 const props = withDefaults(defineProps<{
   configured?: boolean;
@@ -49,5 +50,6 @@ async function submit() {
       <div class="wizard-actions"><button class="button button--primary" :disabled="isBusy">{{ isBusy ? "保存中…" : "保存配置" }}</button></div>
     </form>
     <TtsSettingsPanel />
+    <LegacyImportPanel />
   </section>
 </template>
