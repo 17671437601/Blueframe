@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import socket
+import sys
 
 import pytest
 
-from blueframe_desktop.processes import find_free_port, stop_process, wait_for_health
+from blueframe_desktop.processes import (
+    _ensure_std_streams,
+    find_free_port,
+    stop_process,
+    wait_for_health,
+)
 
 
 class FakeProcess:
@@ -48,3 +54,13 @@ def test_stop_process_terminates_then_kills_an_orphan() -> None:
     stop_process(process, timeout=0)
     assert process.terminated is True
     assert process.killed is True
+
+
+def test_ensure_std_streams_restores_windowed_package_children(monkeypatch) -> None:
+    monkeypatch.setattr("sys.stdout", None)
+    monkeypatch.setattr("sys.stderr", None)
+
+    _ensure_std_streams()
+
+    assert hasattr(sys.stdout, "write")
+    assert hasattr(sys.stderr, "write")

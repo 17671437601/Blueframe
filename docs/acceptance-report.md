@@ -47,6 +47,14 @@
 - 修复：冻结运行时改用 `%LOCALAPPDATA%\BlueFrameStudio\data`；开发运行仍使用仓库 `.blueframe-data`。
 - 回归：新增 `test_packaged_launcher_keeps_user_data_outside_the_install_tree`，桌面套件 12 项通过。
 
+- 窗口化 PyInstaller 子进程中 `sys.stdout` / `sys.stderr` 为 `None`，uvicorn 日志初始化调用 `isatty()` 崩溃，本地服务无法就绪，界面显示离线。
+- 修复：`desktop/blueframe_desktop/processes.py` 新增 `_ensure_std_streams()`，子进程启动前将缺失流重定向到空设备。
+- 回归：新增 `test_ensure_std_streams_restores_windowed_package_children`。
+
+- WebView2 加载 `file://` 页面时发送 `Origin: file://`，后端 CORS 仅放行 `null`，全部 API 预检被拦截。
+- 修复：`backend/blueframe/app.py` 的 CORS 同时放行 `null` 与 `file://`。
+- 回归：新增 `test_file_origin_preflight_allows_desktop_session_header`，覆盖两种 Origin。
+
 ## 5. 黄金媒体与 Provider 假响应
 
 - 渲染黄金测试使用 FFmpeg `lavfi` 合成横屏/竖屏、含/不含音轨素材，校验时长、分辨率与音轨。

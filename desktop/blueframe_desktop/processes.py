@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import multiprocessing
+import os
 import socket
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -83,6 +85,15 @@ class BackendSupervisor:
         self.process = None
 
 
+def _ensure_std_streams() -> None:
+    # Windowed PyInstaller children have no console; uvicorn logging calls
+    # sys.stdout.isatty(), so replace missing streams before starting it.
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
+
 def _run_backend(
     repository_root: Path,
     data_dir: Path,
@@ -90,9 +101,7 @@ def _run_backend(
     token: str,
     bridge_secret: str,
 ) -> None:
-    import os
-    import sys
-
+    _ensure_std_streams()
     backend_root = repository_root / "backend"
     sys.path.insert(0, str(backend_root))
     os.environ["BLUEFRAME_DATA_DIR"] = str(data_dir)

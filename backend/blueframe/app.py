@@ -6,6 +6,7 @@ import hmac
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -72,6 +73,14 @@ def create_app(
             engine.dispose()
 
     app = FastAPI(title="BlueFrame Local API", version="0.1.0", lifespan=lifespan)
+    # The desktop shell loads the built frontend from file://; Chromium sends
+    # "null" while WebView2 sends "file://", so both must be allowed.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["null", "file://"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:
