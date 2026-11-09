@@ -1,0 +1,14 @@
+{
+  "format": "blueframe-resources-v1",
+  "files": {
+    "models/asr/configuration.json": "1acac324430b5a4680ef5ee2947575443ab2039a92c8a0551665f6bc9a606b41",
+    "models/asr/model.pt": "3d491689244ec5dfbf9170ef3827c358aa10f1f20e42a7c59e15e688647946d1",
+    "models/punc/configuration.json": "ebca5ff883e03585b2eec84ce80573f851658bdc61f2887db7d076afe6facd91",
+    "models/punc/model.pt": "a5818bb9d933805a916eebe41eb41648f7f9caad30b4bd59d56f3ca135421916",
+    "models/vad/configuration.json": "7bce8867e37d55c3dd8f672695ced18077a2be199ea529a5d432d5350fc0acba",
+    "models/vad/model.pt": "b3be75be477f0780277f3bae0fe489f48718f585f3a6e45d7dd1fbb1a4255fc5",
+    "third-party/ffmpeg/bin/ffmpeg.exe": "4121b3bb9323ba39ff9d8e421b0af35f9dae78014a6e4fb724731444230c02a1",
+    "third-party/ffmpeg/bin/ffprobe.exe": "e2a919a5ed41322bf061482b31b8a0f5f7eb31e6301302fe265a7ad71ecddb8d"
+  },
+  "signature": "e308c54748232cc14131a8a08302050ad94428894c184c71e3ee96d0c83277b6"
+}

@@ -18,6 +18,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+runtime = [
+  "funasr==1.0.25",
+  "numpy==1.26.4",
+  "torch==2.3.0",
+  "torchaudio==2.3.0",
+]
 test = [
   "httpx>=0.28",
   "pytest>=8.3",

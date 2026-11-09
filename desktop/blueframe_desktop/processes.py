@@ -119,7 +119,6 @@ def _run_backend(
     from blueframe.jobs.handlers.live import LiveSegmentProcessingHandler
     from blueframe.media.preview import extract_audio
     from blueframe.media.probe import probe_media
-    from blueframe.media.tools import discover_executables
     from blueframe.projects.repository import ProjectRepository
     from blueframe.providers.volcengine.config_service import ArkConfigService, DynamicArkAiProvider
     from blueframe.providers.volcengine.tts import (
@@ -146,6 +145,7 @@ def _run_backend(
     from blueframe.assets.scanner import AssetScanner
     from blueframe.assets.models import AssetType
     from blueframe.workers.runner import WorkerRunner
+    from blueframe_desktop.resources import discover_runtime_resources
     import threading
 
     alembic_config = Config(str(backend_root / "alembic.ini"))
@@ -160,8 +160,7 @@ def _run_backend(
     credentials = WindowsCredentialStore()
     provider_config = ArkConfigService(data_dir / "providers.json", credentials)
     tts_config = VolcengineTtsConfigService(data_dir / "tts-provider.json", credentials)
-    tools = discover_executables(search_roots=[repository_root.parent, repository_root])
-    model_root = repository_root.parent / "model" / "hub" / "iic"
+    tools = discover_runtime_resources(repository_root=repository_root)
     asr_repository = AsrRepository(session_factory)
     analysis_repository = StoryAnalysisRepository(session_factory)
     commentary_repository = CommentaryRepository(session_factory)
@@ -196,9 +195,9 @@ def _run_backend(
     asr = AsrService(
         asr_repository,
         FunAsrEngine(
-            asr_model=model_root / "speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
-            vad_model=model_root / "speech_fsmn_vad_zh-cn-16k-common-pytorch",
-            punctuation_model=model_root / "punc_ct-transformer_zh-cn-common-vocab272727-pytorch",
+            asr_model=tools.asr_model,
+            vad_model=tools.vad_model,
+            punctuation_model=tools.punctuation_model,
         ),
         audio_extractor=lambda source, output: extract_audio(tools, source, output),
     )
