@@ -2,6 +2,7 @@
 backend/.venv/
 node_modules/
 dist/
+.build/
 .pytest_cache/
 .mypy_cache/
 playwright-report/
