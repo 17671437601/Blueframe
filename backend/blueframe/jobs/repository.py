@@ -6,6 +6,7 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from blueframe.jobs.models import Job, JobStatus
@@ -31,33 +32,43 @@ class JobRepository:
         priority: int = 0,
     ) -> Job:
         now = self._clock()
-        with self._session_factory.begin() as session:
-            existing = session.execute(
-                text("SELECT * FROM jobs WHERE job_type=:type AND idempotency_key=:key"),
-                {"type": job_type, "key": idempotency_key},
-            ).mappings().first()
-            if existing is not None:
-                return _job(existing)
-            job_id = str(uuid4())
-            session.execute(
-                text(
-                    """INSERT INTO jobs
-                    (id, job_type, payload, status, priority, progress, attempts,
-                     idempotency_key, created_at, updated_at)
-                    VALUES (:id, :type, :payload, 'queued', :priority, 0, 0,
-                            :key, :now, :now)"""
-                ),
-                {
-                    "id": job_id,
-                    "type": job_type,
-                    "payload": json.dumps(payload, ensure_ascii=False),
-                    "priority": priority,
-                    "key": idempotency_key,
-                    "now": now.isoformat(),
-                },
-            )
-            self._event(session, job_id, None, JobStatus.QUEUED, now)
-            return self._get(session, job_id)
+        try:
+            with self._session_factory.begin() as session:
+                existing = session.execute(
+                    text("SELECT * FROM jobs WHERE job_type=:type AND idempotency_key=:key"),
+                    {"type": job_type, "key": idempotency_key},
+                ).mappings().first()
+                if existing is not None:
+                    return _job(existing)
+                job_id = str(uuid4())
+                session.execute(
+                    text(
+                        """INSERT INTO jobs
+                        (id, job_type, payload, status, priority, progress, attempts,
+                         idempotency_key, created_at, updated_at)
+                        VALUES (:id, :type, :payload, 'queued', :priority, 0, 0,
+                                :key, :now, :now)"""
+                    ),
+                    {
+                        "id": job_id,
+                        "type": job_type,
+                        "payload": json.dumps(payload, ensure_ascii=False),
+                        "priority": priority,
+                        "key": idempotency_key,
+                        "now": now.isoformat(),
+                    },
+                )
+                self._event(session, job_id, None, JobStatus.QUEUED, now)
+                return self._get(session, job_id)
+        except IntegrityError:
+            with self._session_factory() as session:
+                row = session.execute(
+                    text("SELECT * FROM jobs WHERE job_type=:type AND idempotency_key=:key"),
+                    {"type": job_type, "key": idempotency_key},
+                ).mappings().first()
+                if row is None:
+                    raise
+                return _job(row)
 
     def claim_next(
         self,

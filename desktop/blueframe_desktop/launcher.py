@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 import json
 import os
+import sys
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -155,13 +156,26 @@ def launch(
         backend.stop()
 
 
+def _data_directory(repository_root: Path) -> Path:
+    # Packaged installs are uninstalled by deleting the install tree, so user
+    # databases must live outside it.
+    if getattr(sys, "frozen", False):
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            return Path(local_app_data) / "BlueFrameStudio" / "data"
+    return repository_root / ".blueframe-data"
+
+
 def main() -> int:
+    if "--smoke" in sys.argv:
+        from blueframe_desktop.package_smoke import main as smoke_main
+        return smoke_main()
     import webview
 
-    repository_root = Path(__file__).resolve().parents[2]
+    repository_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2])).resolve()
     return launch(
         runtime=webview,
-        backend=BackendSupervisor(repository_root),
+        backend=BackendSupervisor(repository_root, _data_directory(repository_root)),
         frontend_entry=repository_root / "frontend" / "dist" / "index.html",
     )
 

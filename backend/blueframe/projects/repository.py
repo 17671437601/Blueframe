@@ -7,6 +7,7 @@ from typing import Callable, Iterable
 from uuid import uuid4
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from blueframe.projects.models import (
@@ -40,38 +41,48 @@ class ProjectRepository:
         idempotency_key: str,
     ) -> Project:
         now = self._clock()
-        with self._session_factory.begin() as session:
-            existing = session.execute(
-                text("SELECT * FROM projects WHERE idempotency_key=:key"),
-                {"key": idempotency_key},
-            ).mappings().first()
-            if existing is not None:
-                return _project(existing)
-            project_id = str(uuid4())
-            session.execute(
-                text(
-                    """INSERT INTO projects
-                    (id, name, project_type, status, root_path,
-                     output_relative_path, config_version, config_json,
-                     idempotency_key, created_at, updated_at)
-                    VALUES (:id, :name, :type, 'draft', :root, :output, 1,
-                            :config, :key, :now, :now)"""
-                ),
-                {
-                    "id": project_id,
-                    "name": name.strip(),
-                    "type": project_type.value,
-                    "root": str(root_path.resolve()),
-                    "output": output_relative_path.replace("\\", "/"),
-                    "config": json.dumps(config, ensure_ascii=False, sort_keys=True),
-                    "key": idempotency_key,
-                    "now": now.isoformat(),
-                },
-            )
-            row = session.execute(
-                text("SELECT * FROM projects WHERE id=:id"), {"id": project_id}
-            ).mappings().one()
-            return _project(row)
+        try:
+            with self._session_factory.begin() as session:
+                existing = session.execute(
+                    text("SELECT * FROM projects WHERE idempotency_key=:key"),
+                    {"key": idempotency_key},
+                ).mappings().first()
+                if existing is not None:
+                    return _project(existing)
+                project_id = str(uuid4())
+                session.execute(
+                    text(
+                        """INSERT INTO projects
+                        (id, name, project_type, status, root_path,
+                         output_relative_path, config_version, config_json,
+                         idempotency_key, created_at, updated_at)
+                        VALUES (:id, :name, :type, 'draft', :root, :output, 1,
+                                :config, :key, :now, :now)"""
+                    ),
+                    {
+                        "id": project_id,
+                        "name": name.strip(),
+                        "type": project_type.value,
+                        "root": str(root_path.resolve()),
+                        "output": output_relative_path.replace("\\", "/"),
+                        "config": json.dumps(config, ensure_ascii=False, sort_keys=True),
+                        "key": idempotency_key,
+                        "now": now.isoformat(),
+                    },
+                )
+                row = session.execute(
+                    text("SELECT * FROM projects WHERE id=:id"), {"id": project_id}
+                ).mappings().one()
+                return _project(row)
+        except IntegrityError:
+            with self._session_factory() as session:
+                row = session.execute(
+                    text("SELECT * FROM projects WHERE idempotency_key=:key"),
+                    {"key": idempotency_key},
+                ).mappings().first()
+                if row is None:
+                    raise
+                return _project(row)
 
     def get(self, project_id: str) -> Project | None:
         with self._session_factory() as session:

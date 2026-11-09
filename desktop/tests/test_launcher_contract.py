@@ -118,3 +118,17 @@ def test_bridge_legacy_database_selection_returns_relative_database_path(tmp_pat
     )
 
     assert bridge.select_legacy_database() == {"rootId": "legacy-root", "file": "video.db"}
+
+
+def test_packaged_launcher_keeps_user_data_outside_the_install_tree(tmp_path, monkeypatch) -> None:
+    from blueframe_desktop import launcher
+
+    install_root = tmp_path / "install"
+    local_app_data = tmp_path / "local-app-data"
+    monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(local_app_data))
+
+    assert launcher._data_directory(install_root) == local_app_data / "BlueFrameStudio" / "data"
+
+    monkeypatch.delenv("LOCALAPPDATA")
+    assert launcher._data_directory(install_root) == install_root / ".blueframe-data"

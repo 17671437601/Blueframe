@@ -62,54 +62,57 @@ class RenderService:
             job_id=job_id, project_id=project_id, plan_id=plan_id,
             spec_hash=spec_hash, working_path=temporary_output,
         )
-        if control.pause_requested or control.cancel_requested:
-            control.checkpoint({"stage": "waiting_to_render", "artifact_id": artifact.id})
-            return self.repository.update(
-                artifact.id, status="paused" if control.pause_requested else "cancelled"
+        try:
+            if control.pause_requested or control.cancel_requested:
+                control.checkpoint({"stage": "waiting_to_render", "artifact_id": artifact.id})
+                return self.repository.update(
+                    artifact.id, status="paused" if control.pause_requested else "cancelled"
+                )
+
+            working_spec = spec.model_copy(update={"output": temporary_output})
+            primary, fallback = build_render_commands(
+                working_spec, hardware_encoder=self.hardware_encoder
+            )
+            parser = FfmpegProgressParser(
+                duration_ms=sum(item.end_ms - item.start_ms for item in spec.segments)
             )
 
-        working_spec = spec.model_copy(update={"output": temporary_output})
-        primary, fallback = build_render_commands(
-            working_spec, hardware_encoder=self.hardware_encoder
-        )
-        parser = FfmpegProgressParser(
-            duration_ms=sum(item.end_ms - item.start_ms for item in spec.segments)
-        )
+            def on_output(data: str) -> None:
+                for value in parser.feed(data):
+                    control.progress(value * 0.9, "render_media")
+                control.heartbeat()
 
-        def on_output(data: str) -> None:
-            for value in parser.feed(data):
-                control.progress(value * 0.9, "render_media")
-            control.heartbeat()
+            should_stop = lambda: control.pause_requested or control.cancel_requested
+            code = self.executor.run(primary, on_output=on_output, should_stop=should_stop)
+            if code != 0 and not should_stop() and primary != fallback:
+                code = self.executor.run(fallback, on_output=on_output, should_stop=should_stop)
+            if should_stop():
+                control.checkpoint({"stage": "render_interrupted", "artifact_id": artifact.id})
+                return self.repository.update(
+                    artifact.id, status="paused" if control.pause_requested else "cancelled"
+                )
+            if code != 0:
+                raise RuntimeError(f"FFmpeg exited with code {code}")
 
-        should_stop = lambda: control.pause_requested or control.cancel_requested
-        code = self.executor.run(primary, on_output=on_output, should_stop=should_stop)
-        if code != 0 and not should_stop() and primary != fallback:
-            code = self.executor.run(fallback, on_output=on_output, should_stop=should_stop)
-        if should_stop():
-            control.checkpoint({"stage": "render_interrupted", "artifact_id": artifact.id})
+            self.probe(temporary_output)
+            checksum = _sha256(temporary_output)
+            spec.output.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(temporary_output, spec.output)
+            manifest = spec.output.with_suffix(".manifest.json")
+            manifest_temp = manifest.with_suffix(".json.tmp")
+            manifest_temp.write_text(json.dumps({
+                "artifact_id": artifact.id, "plan_id": plan_id, "sha256": checksum,
+                "output": spec.output.name,
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(manifest_temp, manifest)
+            control.progress(100, "publish_media")
+            control.checkpoint({"stage": "published", "artifact_id": artifact.id, "output": spec.output.name})
             return self.repository.update(
-                artifact.id, status="paused" if control.pause_requested else "cancelled"
+                artifact.id, status="completed", published_path=spec.output, checksum=checksum
             )
-        if code != 0:
+        except Exception:
             self.repository.update(artifact.id, status="failed")
-            raise RuntimeError(f"FFmpeg exited with code {code}")
-
-        self.probe(temporary_output)
-        checksum = _sha256(temporary_output)
-        spec.output.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(temporary_output, spec.output)
-        manifest = spec.output.with_suffix(".manifest.json")
-        manifest_temp = manifest.with_suffix(".json.tmp")
-        manifest_temp.write_text(json.dumps({
-            "artifact_id": artifact.id, "plan_id": plan_id, "sha256": checksum,
-            "output": spec.output.name,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(manifest_temp, manifest)
-        control.progress(100, "publish_media")
-        control.checkpoint({"stage": "published", "artifact_id": artifact.id, "output": spec.output.name})
-        return self.repository.update(
-            artifact.id, status="completed", published_path=spec.output, checksum=checksum
-        )
+            raise
 
 
 def _sha256(path: Path) -> str:
