@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useProviderSettingsStore } from "../stores/providerSettings";
 import TtsSettingsPanel from "../components/TtsSettingsPanel.vue";
 import LegacyImportPanel from "../components/LegacyImportPanel.vue";
+import DiagnosticsPanel from "../components/DiagnosticsPanel.vue";
 
 const props = withDefaults(defineProps<{
   configured?: boolean;
@@ -51,5 +52,6 @@ async function submit() {
     </form>
     <TtsSettingsPanel />
     <LegacyImportPanel />
+    <DiagnosticsPanel />
   </section>
 </template>

@@ -104,3 +104,28 @@ def test_runner_claims_only_job_types_it_can_handle(migrated_session_factory) ->
     assert runner.run_once() is True
     assert repository.get(known.id).status.value == "completed"
     assert repository.get(unknown.id).status.value == "queued"
+
+
+def test_runner_records_structured_stage_and_duration_metrics(migrated_session_factory) -> None:
+    events = []
+
+    class Metrics:
+        def record(self, **event): events.append(event)
+
+    class Handler:
+        def run(self, job, checkpoint, control):
+            control.progress(50, "render_media")
+            return importlib.import_module("blueframe.workers.protocol").JobResult()
+
+    repository = importlib.import_module("blueframe.jobs.repository").JobRepository(migrated_session_factory)
+    runner = importlib.import_module("blueframe.workers.runner").WorkerRunner(
+        repository, {"render": Handler()}, worker_id="worker-metrics", lease_seconds=60,
+        diagnostics=Metrics(), monotonic=lambda: 1.25,
+    )
+    repository.create("render", {"secret": "must-not-be-recorded"}, "metrics")
+
+    runner.run_once()
+
+    assert events[0] == {"category": "worker", "stage": "render_media", "status": "progress"}
+    assert events[-1]["status"] == "completed" and events[-1]["duration_ms"] == 0
+    assert "secret" not in str(events)

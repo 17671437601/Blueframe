@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 from blueframe.jobs.models import JobStatus
@@ -15,12 +16,14 @@ class _Control:
         job_id: str,
         worker_id: str,
         lease_seconds: int,
+        diagnostics=None,
     ) -> None:
         self.repository = repository
         self.job_id = job_id
         self.worker_id = worker_id
         self.lease_seconds = lease_seconds
         self.saved_checkpoint: dict[str, Any] | None = None
+        self.diagnostics = diagnostics
 
     def heartbeat(self) -> None:
         self.repository.heartbeat(
@@ -33,6 +36,8 @@ class _Control:
 
     def progress(self, value: float, stage: str | None = None) -> None:
         self.repository.update_progress(self.job_id, self.worker_id, value, stage)
+        if self.diagnostics is not None and stage:
+            self.diagnostics.record(category="worker", stage=stage, status="progress")
 
     @property
     def pause_requested(self) -> bool:
@@ -53,11 +58,15 @@ class WorkerRunner:
         *,
         worker_id: str,
         lease_seconds: int,
+        diagnostics=None,
+        monotonic=time.monotonic,
     ) -> None:
         self.repository = repository
         self.handlers = handlers
         self.worker_id = worker_id
         self.lease_seconds = lease_seconds
+        self.diagnostics = diagnostics
+        self.monotonic = monotonic
 
     def run_once(self) -> bool:
         job = self.repository.claim_next(
@@ -67,6 +76,7 @@ class WorkerRunner:
         )
         if job is None:
             return False
+        started = self.monotonic()
         handler = self.handlers.get(job.job_type)
         if handler is None:
             self.repository.fail(
@@ -75,6 +85,7 @@ class WorkerRunner:
             return True
         control = _Control(
             self.repository, job.id, self.worker_id, self.lease_seconds
+            , self.diagnostics
         )
         try:
             handler.run(job, job.checkpoint, control)
@@ -89,6 +100,7 @@ class WorkerRunner:
                 self.repository.mark_cancelled(job.id, self.worker_id)
             else:
                 self.repository.complete(job.id, self.worker_id)
+            self._record(job.job_type, current.stage or job.job_type, "completed", started)
         except Exception as error:
             current = self.repository.get(job.id)
             if current is not None and current.status not in {
@@ -102,7 +114,15 @@ class WorkerRunner:
                     _sanitize_error(error),
                     worker_id=self.worker_id,
                 )
+                self._record(job.job_type, current.stage or job.job_type, "failed", started, "handler_error")
         return True
+
+    def _record(self, job_type: str, stage: str, status: str, started: float, error_code: str | None = None) -> None:
+        if self.diagnostics is None: return
+        self.diagnostics.record(
+            category="worker", stage=stage, status=status,
+            duration_ms=max(0, round((self.monotonic() - started) * 1000)), error_code=error_code,
+        )
 
 
 def _sanitize_error(error: Exception) -> str:

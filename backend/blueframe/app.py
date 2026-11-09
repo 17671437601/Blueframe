@@ -24,6 +24,7 @@ from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
 from blueframe.api.routes.providers import build_provider_router
 from blueframe.api.routes.system import build_system_router
+from blueframe.api.routes.diagnostics import build_diagnostics_router
 from blueframe.security.session_token import SessionTokenVerifier, generate_session_token
 
 
@@ -52,6 +53,8 @@ def create_app(
     live_credentials=None,
     live_engine=None,
     legacy_importer=None,
+    diagnostics_service=None,
+    diagnostics_export_dir=None,
     edit_plan_repository=None,
     open_path=None,
 ) -> FastAPI:
@@ -79,6 +82,8 @@ def create_app(
     verifier = SessionTokenVerifier(session_token or generate_session_token())
     require_session = session_dependency(verifier)
     app.include_router(build_system_router(require_session), prefix="/api/v1")
+    if diagnostics_service is not None and diagnostics_export_dir is not None:
+        app.include_router(build_diagnostics_router(require_session, diagnostics_service, diagnostics_export_dir), prefix="/api/v1")
     if project_path_registry is not None and legacy_importer is not None:
         app.include_router(build_legacy_router(require_session, project_path_registry, legacy_importer), prefix="/api/v1")
     if project_path_registry is not None and asset_repository is not None and asset_scanner is not None:

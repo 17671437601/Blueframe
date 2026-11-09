@@ -136,6 +136,8 @@ def _run_backend(
     from blueframe.live.recorder import RecordingEngine, SubprocessRecorderLauncher
     from blueframe.live.coordinator import StableSegmentCoordinator
     from blueframe.legacy.importer import LegacyImporter
+    from blueframe.diagnostics.repository import DiagnosticsRepository
+    from blueframe.diagnostics.bundle import DiagnosticsBundleService
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
@@ -174,6 +176,7 @@ def _run_backend(
         recordings, projects, jobs, media_probe=lambda path: probe_media(path, tools),
     )
     legacy_importer = LegacyImporter(session_factory, media_probe=lambda path: probe_media(path, tools))
+    diagnostics = DiagnosticsRepository(session_factory)
     def validate_asset(path, asset_type):
         if asset_type is AssetType.VIDEO:
             return probe_media(path, tools).model_dump(mode="json")
@@ -245,6 +248,7 @@ def _run_backend(
         },
         worker_id=f"desktop-{os.getpid()}",
         lease_seconds=settings.job_lease_seconds,
+        diagnostics=diagnostics,
     )
     stop_worker = threading.Event()
 
@@ -297,6 +301,8 @@ def _run_backend(
         live_credentials=credentials,
         live_engine=live_engine,
         legacy_importer=legacy_importer,
+        diagnostics_service=DiagnosticsBundleService(jobs, diagnostics),
+        diagnostics_export_dir=data_dir / "diagnostics",
         edit_plan_repository=edit_plans,
         open_path=lambda path: os.startfile(path),
     )

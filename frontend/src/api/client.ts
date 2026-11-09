@@ -139,6 +139,8 @@ export interface LegacyImportResult {
   project_ids: string[];
 }
 
+export interface DiagnosticsSummary { job_count: number; failed_jobs: number; metric_count: number; }
+
 export interface CreateProjectPayload {
   name: string;
   project_type: ProjectSummary["project_type"];
@@ -193,6 +195,8 @@ export interface ApiClient {
   reconnectRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
   previewLegacyImport(payload: { root_id: string; relative_path: string }): Promise<LegacyPreviewReport>;
   confirmLegacyImport(payload: { root_id: string; relative_path: string; expected_source_hash: string; confirmed: true }): Promise<LegacyImportResult>;
+  diagnosticsSummary(): Promise<DiagnosticsSummary>;
+  exportDiagnostics(): Promise<{ filename: string }>;
 }
 
 export function createApiClient(
@@ -278,5 +282,7 @@ export function createApiClient(
     reconnectRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/reconnect`, { method: "POST" }),
     previewLegacyImport: (payload) => request("/api/v1/legacy-import/preview", { method: "POST", body: JSON.stringify(payload) }),
     confirmLegacyImport: (payload) => request("/api/v1/legacy-import/confirm", { method: "POST", body: JSON.stringify(payload) }),
+    diagnosticsSummary: () => request("/api/v1/diagnostics/summary"),
+    exportDiagnostics: () => request("/api/v1/diagnostics/export", { method: "POST" }),
   };
 }

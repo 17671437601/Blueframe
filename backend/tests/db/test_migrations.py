@@ -31,7 +31,7 @@ def test_upgrade_head_is_repeatable_and_records_revision(
     finally:
         connection.close()
 
-    assert revisions == [("0010_legacy_imports",)]
+    assert revisions == [("0011_diagnostics",)]
     assert {
         "account_summary",
         "entitlement_snapshot",
@@ -49,4 +49,5 @@ def test_upgrade_head_is_repeatable_and_records_revision(
         "recording_sessions",
         "recording_segments",
         "legacy_imports",
+        "diagnostic_metrics",
     } <= tables

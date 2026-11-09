@@ -14,6 +14,7 @@ import { configureAssetStore } from "./stores/assets";
 import { configureVariantStore } from "./stores/variants";
 import { configureLiveStore } from "./stores/live";
 import { configureLegacyImportStore } from "./stores/legacyImport";
+import { configureDiagnosticsStore } from "./stores/diagnostics";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
@@ -40,6 +41,7 @@ configureAssetStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken
 configureVariantStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureLiveStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureLegacyImportStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureDiagnosticsStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");
 void system.refresh();
