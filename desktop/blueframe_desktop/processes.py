@@ -149,6 +149,8 @@ def _run_backend(
     from blueframe.editing.repository import EditPlanRepository
     from blueframe.highlights.handler import HighlightBatchHandler
     from blueframe.highlights.repository import HighlightBatchRepository
+    from blueframe.story.handler import StoryBatchHandler
+    from blueframe.story.repository import StoryBatchRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
     from blueframe.security.project_paths import ProjectPathRegistry
