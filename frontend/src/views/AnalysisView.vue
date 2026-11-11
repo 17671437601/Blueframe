@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import type { JobSummary, StoryAnalysisVersion } from "../api/client";
+import ProjectTabs from "../components/ProjectTabs.vue";
 import { useAnalysisStore } from "../stores/analysis";
 
 const props = withDefaults(defineProps<{
@@ -28,6 +29,7 @@ async function accept(version: number) { if (props.accept) await props.accept(pr
 
 <template>
   <section class="analysis-workspace">
+    <ProjectTabs :project-id="projectId" active="analysis" />
     <header class="wizard-heading"><div><p class="eyebrow">STORY INTELLIGENCE</p><h2>剧情智能分析</h2><p>审阅剧情结构、高能点与候选剪辑方案。</p></div><button class="button button--light" @click="props.refresh ? props.refresh(projectId) : store!.refresh(projectId)">刷新</button></header>
     <div class="analysis-grid">
       <article class="panel analysis-control">
@@ -41,6 +43,6 @@ async function accept(version: number) { if (props.accept) await props.accept(pr
       <article class="panel story-summary"><header><h3>剧情总览</h3><em v-if="latest">版本 {{ latest.version }}</em></header><div class="analysis-body"><p>{{ latest?.analysis.episode_summary || "完成本地识别后启动智能分析。" }}</p><div v-if="latest" class="character-chips"><span v-for="character in latest.analysis.characters" :key="character.name">{{ character.name }} · {{ character.role }}</span></div></div></article>
     </div>
     <article v-if="latest" class="panel explosion-panel"><header><h3>高能点候选</h3><button v-if="!latest.accepted" class="button button--primary" data-testid="accept-analysis" @click="accept(latest.version)">接受此版本</button><span v-else class="live-chip"><i />已锁定</span></header><div class="explosion-list"><div v-for="item in latest.analysis.explosions" :key="`${item.start_ms}-${item.title}`"><b>{{ item.score }}</b><span><strong>{{ item.title }}</strong><small>{{ item.reason }} · {{ (item.start_ms / 1000).toFixed(1) }}s</small></span></div><p v-if="!latest.analysis.explosions.length" class="section-help">暂无高能点候选</p></div></article>
-    <div v-if="latest?.accepted" class="wizard-actions"><a class="button button--primary analysis-link" :href="`#/drama/${projectId}/edit`">进入成片编辑器</a></div>
+    <div v-if="latest?.accepted" class="wizard-actions"><a class="button button--light analysis-link" :href="`#/drama/${projectId}/highlights`">生成高光切片</a><a class="button button--light analysis-link" :href="`#/drama/${projectId}/story`">生成主线成片</a><a class="button button--primary analysis-link" :href="`#/drama/${projectId}/edit`">进入成片编辑器</a></div>
   </section>
 </template>

@@ -25,7 +25,7 @@ const bannerKind = computed(() => {
   if (props.connection === "degraded") return "degraded";
   return "none";
 });
-const icons = ["⌂", "◆", "▶", "◇", "◉", "▦", "≋", "⚙"];
+const icons = ["⌂", "◆", "▦", "≋", "⚙"];
 const navigationRoutes = routeDefinitions.filter((item) => item.meta.navigation !== false);
 </script>
 

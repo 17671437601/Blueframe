@@ -147,6 +147,8 @@ def _run_backend(
     from blueframe.diagnostics.repository import DiagnosticsRepository
     from blueframe.diagnostics.bundle import DiagnosticsBundleService
     from blueframe.editing.repository import EditPlanRepository
+    from blueframe.highlights.handler import HighlightBatchHandler
+    from blueframe.highlights.repository import HighlightBatchRepository
     from blueframe.rendering.artifacts import RenderArtifactRepository
     from blueframe.rendering.service import FfmpegExecutor, RenderService
     from blueframe.security.project_paths import ProjectPathRegistry
@@ -174,6 +176,8 @@ def _run_backend(
     analysis_repository = StoryAnalysisRepository(session_factory)
     commentary_repository = CommentaryRepository(session_factory)
     edit_plans = EditPlanRepository(session_factory)
+    highlight_batches = HighlightBatchRepository(session_factory)
+    story_batches = StoryBatchRepository(session_factory)
     asset_repository = AssetRepository(session_factory)
     variant_batches = VariantBatchRepository(session_factory)
     recordings = RecordingRepository(session_factory, concurrency_limit=2)
@@ -211,6 +215,11 @@ def _run_backend(
         audio_extractor=lambda source, output: extract_audio(tools, source, output),
     )
     analysis_service = AnalysisService(DynamicArkAiProvider(provider_config), analysis_repository)
+    render_service = RenderService(
+        RenderArtifactRepository(session_factory),
+        executor=FfmpegExecutor(),
+        probe=lambda path: probe_media(path, tools),
+    )
     worker = WorkerRunner(
         jobs,
         {
@@ -246,11 +255,22 @@ def _run_backend(
             "render_edit_plan": RenderProjectHandler(
                 projects,
                 edit_plans,
-                RenderService(
-                    RenderArtifactRepository(session_factory),
-                    executor=FfmpegExecutor(),
-                    probe=lambda path: probe_media(path, tools),
-                ),
+                render_service,
+                tools.ffmpeg,
+            ),
+            "render_highlights": HighlightBatchHandler(
+                projects,
+                highlight_batches,
+                asr_repository,
+                render_service,
+                tools.ffmpeg,
+            ),
+            "render_story_batch": StoryBatchHandler(
+                projects,
+                story_batches,
+                edit_plans,
+                asr_repository,
+                render_service,
                 tools.ffmpeg,
             ),
         },
@@ -301,6 +321,9 @@ def _run_backend(
         provider_config_service=provider_config,
         tts_config_service=tts_config,
         analysis_repository=analysis_repository,
+        highlight_batch_repository=highlight_batches,
+        story_batch_repository=story_batches,
+        asr_repository=asr_repository,
         commentary_repository=commentary_repository,
         asset_repository=asset_repository,
         asset_scanner=asset_scanner,

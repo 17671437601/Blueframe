@@ -12,6 +12,7 @@ class PlanKind(StrEnum):
     HIGHLIGHT = "highlight"
     REMIX = "remix"
     COMMENTARY = "commentary"
+    STORY = "story"
 
 
 class EditSegment(DomainModel):

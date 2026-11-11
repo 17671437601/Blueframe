@@ -12,9 +12,12 @@ import { configureTtsSettingsStore } from "./stores/ttsSettings";
 import { configureMovieStore } from "./stores/movie";
 import { configureAssetStore } from "./stores/assets";
 import { configureVariantStore } from "./stores/variants";
+import { configureHighlightStore } from "./stores/highlights";
+import { configureStoryStore } from "./stores/story";
 import { configureLiveStore } from "./stores/live";
 import { configureLegacyImportStore } from "./stores/legacyImport";
 import { configureDiagnosticsStore } from "./stores/diagnostics";
+import { configureTasksStore } from "./stores/tasks";
 import "./styles/tokens.css";
 import "./styles/base.css";
 
@@ -39,9 +42,12 @@ configureTtsSettingsStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessio
 configureMovieStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureAssetStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureVariantStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureHighlightStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureStoryStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureLiveStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureLegacyImportStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 configureDiagnosticsStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
+configureTasksStore(createApiClient(bootstrap.apiBaseUrl, bootstrap.sessionToken));
 
 createApp(App).use(router).mount("#app");
 void system.refresh();

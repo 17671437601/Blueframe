@@ -10,8 +10,13 @@ export interface JobSummary {
   job_type: string;
   status: string;
   progress: number;
+  stage?: string | null;
+  attempts?: number;
   payload?: Record<string, unknown>;
+  error_code?: string | null;
   error_summary?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface StoryAnalysisVersion {
@@ -34,6 +39,8 @@ export interface ProjectSummary {
   name: string;
   project_type: "drama" | "movie" | "variants" | "live";
   status: string;
+  created_at?: string;
+  updated_at?: string;
   sources?: Array<{ id: string; relative_path: string; media_info?: Record<string, unknown> }>;
 }
 
@@ -111,6 +118,75 @@ export interface VariantBatchSummary {
   items: VariantItemSummary[];
 }
 
+export interface HighlightClipSummary {
+  id: string;
+  item_index: number;
+  title: string;
+  reason: string;
+  score: number;
+  start_ms: number;
+  end_ms: number;
+  duration_ms: number;
+  status: string;
+  output_filename?: string | null;
+  error_summary?: string | null;
+}
+
+export interface HighlightBatchSummary {
+  id: string;
+  project_id: string;
+  analysis_version_id: string;
+  status: string;
+  target_count: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  burn_subtitles: boolean;
+  created_at: string;
+  clips: HighlightClipSummary[];
+}
+
+export interface CreateHighlightBatchPayload {
+  analysis_version_id?: string;
+  target_count: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  burn_subtitles: boolean;
+  idempotency_key: string;
+}
+
+export interface StoryItemSummary {
+  id: string;
+  item_index: number;
+  title: string;
+  target_duration_ms: number;
+  duration_ms: number;
+  status: string;
+  output_filename?: string | null;
+  error_summary?: string | null;
+}
+
+export interface StoryBatchSummary {
+  id: string;
+  project_id: string;
+  analysis_version_id: string;
+  status: string;
+  target_count: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  burn_subtitles: boolean;
+  created_at: string;
+  items: StoryItemSummary[];
+}
+
+export interface CreateStoryBatchPayload {
+  analysis_version_id?: string;
+  target_count: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  burn_subtitles: boolean;
+  idempotency_key: string;
+}
+
 export interface RecordingSessionSummary {
   id: string;
   project_id: string;
@@ -165,6 +241,9 @@ export interface ApiClient {
   systemStatus(): Promise<{ status: string }>;
   accountAccess(): Promise<AccountAccess>;
   jobs(): Promise<JobSummary[]>;
+  pauseJob(jobId: string): Promise<JobSummary>;
+  resumeJob(jobId: string): Promise<JobSummary>;
+  cancelJob(jobId: string): Promise<JobSummary>;
   listProjects(): Promise<ProjectSummary[]>;
   createProject(payload: CreateProjectPayload): Promise<ProjectSummary>;
   addProjectSources(projectId: string, relativePaths: string[]): Promise<ProjectSummary["sources"]>;
@@ -189,6 +268,12 @@ export interface ApiClient {
   listVariantBatches(projectId: string): Promise<VariantBatchSummary[]>;
   createVariantBatch(projectId: string, payload: { source_id: string; count: number; seed: number; width: number; height: number; overlay_asset_id?: string; idempotency_key: string }): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
   retryVariantBatch(projectId: string, batchId: string, idempotencyKey: string): Promise<{ batch: VariantBatchSummary; job: JobSummary }>;
+  listHighlightBatches(projectId: string): Promise<HighlightBatchSummary[]>;
+  createHighlightBatch(projectId: string, payload: CreateHighlightBatchPayload): Promise<{ batch: HighlightBatchSummary; job: JobSummary }>;
+  retryHighlightBatch(projectId: string, batchId: string, idempotencyKey: string): Promise<{ batch: HighlightBatchSummary; job: JobSummary }>;
+  listStoryBatches(projectId: string): Promise<StoryBatchSummary[]>;
+  createStoryBatch(projectId: string, payload: CreateStoryBatchPayload): Promise<{ batch: StoryBatchSummary; job: JobSummary }>;
+  retryStoryBatch(projectId: string, batchId: string, idempotencyKey: string): Promise<{ batch: StoryBatchSummary; job: JobSummary }>;
   listRecordings(projectId: string): Promise<RecordingSessionSummary[]>;
   startRecording(projectId: string, payload: { platform: "douyin" | "authorized_url"; display_name: string; playback_url: string; authorization_confirmed: boolean }): Promise<RecordingSessionSummary>;
   stopRecording(projectId: string, sessionId: string): Promise<RecordingSessionSummary>;
@@ -226,6 +311,9 @@ export function createApiClient(
     systemStatus: () => request("/api/v1/system/status"),
     accountAccess: () => request("/api/v1/account/access"),
     jobs: () => request("/api/v1/jobs"),
+    pauseJob: (jobId) => request(`/api/v1/jobs/${jobId}/pause`, { method: "POST" }),
+    resumeJob: (jobId) => request(`/api/v1/jobs/${jobId}/resume`, { method: "POST" }),
+    cancelJob: (jobId) => request(`/api/v1/jobs/${jobId}/cancel`, { method: "POST" }),
     listProjects: () => request("/api/v1/projects"),
     createProject: (payload) => request("/api/v1/projects", {
       method: "POST", body: JSON.stringify(payload),
@@ -276,6 +364,12 @@ export function createApiClient(
     listVariantBatches: (projectId) => request(`/api/v1/projects/${projectId}/variant-batches`),
     createVariantBatch: (projectId, payload) => request(`/api/v1/projects/${projectId}/variant-batches`, { method: "POST", body: JSON.stringify(payload) }),
     retryVariantBatch: (projectId, batchId, idempotencyKey) => request(`/api/v1/projects/${projectId}/variant-batches/${batchId}/retry`, { method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }) }),
+    listHighlightBatches: (projectId) => request(`/api/v1/projects/${projectId}/highlight-batches`),
+    createHighlightBatch: (projectId, payload) => request(`/api/v1/projects/${projectId}/highlight-batches`, { method: "POST", body: JSON.stringify(payload) }),
+    retryHighlightBatch: (projectId, batchId, idempotencyKey) => request(`/api/v1/projects/${projectId}/highlight-batches/${batchId}/retry`, { method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }) }),
+    listStoryBatches: (projectId) => request(`/api/v1/projects/${projectId}/story-batches`),
+    createStoryBatch: (projectId, payload) => request(`/api/v1/projects/${projectId}/story-batches`, { method: "POST", body: JSON.stringify(payload) }),
+    retryStoryBatch: (projectId, batchId, idempotencyKey) => request(`/api/v1/projects/${projectId}/story-batches/${batchId}/retry`, { method: "POST", body: JSON.stringify({ idempotency_key: idempotencyKey }) }),
     listRecordings: (projectId) => request(`/api/v1/projects/${projectId}/recordings`),
     startRecording: (projectId, payload) => request(`/api/v1/projects/${projectId}/recordings`, { method: "POST", body: JSON.stringify(payload) }),
     stopRecording: (projectId, sessionId) => request(`/api/v1/projects/${projectId}/recordings/${sessionId}/stop`, { method: "POST" }),

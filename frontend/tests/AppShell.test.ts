@@ -1,18 +1,19 @@
 import { mount } from "@vue/test-utils";
+import { defineComponent, h } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 
 import AppShell from "../src/layout/AppShell.vue";
-import PlaceholderView from "../src/views/PlaceholderView.vue";
 
-const labels = ["工作台", "短剧", "电影", "变体", "直播", "资产", "任务", "设置"];
+const labels = ["工作台", "项目", "素材", "任务", "设置"];
+const StubView = defineComponent({ render: () => h("div") });
 
 async function mountShell(path = "/") {
-  const paths = ["/", "/drama", "/movie", "/variants", "/live", "/assets", "/tasks", "/settings"];
+  const paths = ["/", "/projects", "/assets", "/tasks", "/settings"];
   const router = createRouter({
     history: createMemoryHistory(),
     routes: paths.map((routePath, index) => ({
       path: routePath,
-      component: PlaceholderView,
+      component: StubView,
       meta: { title: labels[index] },
     })),
   });
@@ -30,7 +31,7 @@ async function mountShell(path = "/") {
 }
 
 describe("AppShell", () => {
-  it("renders the eight destinations, active route and task status", async () => {
+  it("renders the five destinations, active route and task status", async () => {
     const wrapper = await mountShell("/tasks");
     for (const label of labels) expect(wrapper.text()).toContain(label);
     expect(wrapper.get('[aria-current="page"]').text()).toContain("任务");

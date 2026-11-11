@@ -18,7 +18,7 @@ export class SystemStore {
   }
 
   get runningTaskCount(): number {
-    return this.jobs.filter((job) => ["queued", "running", "pause_requested"].includes(job.status)).length;
+    return this.jobs.filter((job) => ["queued", "running", "pausing"].includes(job.status)).length;
   }
 
   get bannerKind(): "none" | "offline" | "grace" | "readonly" | "degraded" {

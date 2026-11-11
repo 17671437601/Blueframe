@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import type { EditPlan, EditSegment } from "../api/client";
+import ProjectTabs from "../components/ProjectTabs.vue";
 import { useTimelineStore } from "../stores/timeline";
 
 const props = withDefaults(defineProps<{
@@ -37,6 +38,7 @@ async function openOutput() { await (props.openOutput ? props.openOutput(props.p
 
 <template>
   <section class="timeline-workspace">
+    <ProjectTabs :project-id="projectId" active="timeline" />
     <header class="wizard-heading"><div><p class="eyebrow">EDIT DECISION LIST</p><h2>高光与重组编辑器</h2><p>拖动排序、调整入出点，然后渲染可交付成片。</p></div><span class="step-count">{{ (duration / 1000).toFixed(1) }} 秒</span></header>
     <div v-if="activePlan" class="timeline-layout">
       <article class="panel preview-panel"><header><h3>预览</h3><span>{{ activePlan.title }} · v{{ activePlan.version }}</span></header><div class="preview-stage"><span>▶</span><p>选择片段后生成本地预览</p></div><div class="render-status"><b>{{ renderJob?.status || "尚未渲染" }}</b><small v-if="renderJob">{{ Math.round(renderJob.progress) }}%</small></div></article>

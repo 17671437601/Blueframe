@@ -21,8 +21,10 @@ from blueframe.api.routes.variants import build_variants_router
 from blueframe.api.routes.live import build_live_router
 from blueframe.api.routes.legacy import build_legacy_router
 from blueframe.api.routes.edit_plans import build_edit_plan_router
+from blueframe.api.routes.highlights import build_highlight_router
 from blueframe.api.routes.jobs import build_jobs_router
 from blueframe.api.routes.projects import build_projects_router
+from blueframe.api.routes.story import build_story_router
 from blueframe.api.routes.providers import build_provider_router
 from blueframe.api.routes.system import build_system_router
 from blueframe.api.routes.diagnostics import build_diagnostics_router
@@ -46,6 +48,9 @@ def create_app(
     provider_config_service=None,
     tts_config_service=None,
     analysis_repository=None,
+    highlight_batch_repository=None,
+    story_batch_repository=None,
+    asr_repository=None,
     commentary_repository=None,
     asset_repository=None,
     asset_scanner=None,
@@ -205,6 +210,52 @@ def create_app(
             build_edit_plan_router(
                 require_session, project_repository, edit_plan_repository,
                 job_repository, account_service,
+            ),
+            prefix="/api/v1",
+        )
+    if all(
+        dependency is not None
+        for dependency in (
+            project_repository,
+            analysis_repository,
+            highlight_batch_repository,
+            job_repository,
+            account_service,
+        )
+    ):
+        app.include_router(
+            build_highlight_router(
+                require_session,
+                project_repository,
+                analysis_repository,
+                highlight_batch_repository,
+                job_repository,
+                account_service,
+                asr_repository,
+            ),
+            prefix="/api/v1",
+        )
+    if all(
+        dependency is not None
+        for dependency in (
+            project_repository,
+            analysis_repository,
+            story_batch_repository,
+            edit_plan_repository,
+            job_repository,
+            account_service,
+        )
+    ):
+        app.include_router(
+            build_story_router(
+                require_session,
+                project_repository,
+                analysis_repository,
+                story_batch_repository,
+                edit_plan_repository,
+                job_repository,
+                account_service,
+                asr_repository,
             ),
             prefix="/api/v1",
         )
